@@ -1,15 +1,15 @@
-# yabe-firewall
+# yabe-windows
 
-Ansible configuration for the Yabe range firewall team.
+Ansible configuration for the Yabe range Windows team.
 
-## Devices
+## Machines
 
-| Hostname       | IP           | Role                        |
-|----------------|--------------|-----------------------------|
-| vyos           | 10.30.1.1    | Border router, NAT          |
-| debian-router  | 10.30.1.2    | Distribution router, ntopng |
-| mikrotik       | 10.30.1.3    | Linux segment firewall      |
-| pfsense        | 10.30.1.4    | Windows segment firewall    |
+| Hostname  | IP            | OS                    | Role                        |
+|-----------|---------------|-----------------------|-----------------------------|
+| dc01      | 10.30.20.10   | Windows Server 2016   | Primary DC, AD, DNS, Kerberos |
+| dc02      | 10.30.20.11   | Windows Server 2025   | Secondary DC, DHCP          |
+| fs01-win  | 10.30.20.12   | Windows Server 2019   | SMB, DFS Namespace          |
+| app01     | 10.30.20.13   | Windows Server 2022   | IIS, intranet.yabe.corp     |
 
 ## Setup
 
