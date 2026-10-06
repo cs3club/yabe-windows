@@ -12,3 +12,11 @@ collections:
   - name: community.general
     # Large collection of general purpose modules
     # Docs: https://docs.ansible.com/ansible/latest/collections/community/general/
+
+  - name: ansible.windows
+    # Core Windows modules - file, service, registry, user, etc.
+    # Docs: https://docs.ansible.com/ansible/latest/collections/ansible/windows/
+
+  - name: community.windows
+    # Extended Windows modules - AD, IIS, DNS, SMB, etc.
+    # Docs: https://docs.ansible.com/ansible/latest/collections/community/windows/
