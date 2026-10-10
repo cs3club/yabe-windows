@@ -8,10 +8,9 @@
 
 - name: All plays
   hosts: all
-  become: true
   gather_facts: true
   roles: []
   # Add roles here as you build them, e.g.:
   # roles:
-  #   - role: vyos
-  #     tags: vyos
+  #   - role: dc01
+  #     tags: dc01

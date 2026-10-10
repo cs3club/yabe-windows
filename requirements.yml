@@ -8,15 +8,24 @@ collections:
   - name: ansible.posix
     # sysctl, mount, firewalld, authorized_key and other POSIX modules
     # Docs: https://docs.ansible.com/ansible/latest/collections/ansible/posix/
-
+    # NOTE: This is likely unnecessary as it only runs on Linux hosts. Included just in case
+ 
   - name: community.general
     # Large collection of general purpose modules
     # Docs: https://docs.ansible.com/ansible/latest/collections/community/general/
+    # NOTE: This is likely unnecessary as it pretty much only targets Linux hosts. Included just in case
 
   - name: ansible.windows
+    version: ">=2.0.0"
     # Core Windows modules - file, service, registry, user, etc.
     # Docs: https://docs.ansible.com/ansible/latest/collections/ansible/windows/
 
   - name: community.windows
+    version: ">=2.0.0"
     # Extended Windows modules - AD, IIS, DNS, SMB, etc.
     # Docs: https://docs.ansible.com/ansible/latest/collections/community/windows/
+
+  - name: microsoft.ad
+    version: ">=1.0.0"
+    # Active directory - creates the domain, promotes DCs, etc
+    # Docs: https://docs.ansible.com/ansible/latest/collections/microsoft/ad/
