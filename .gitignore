@@ -1,8 +1,8 @@
 # .gitignore
 
 # ── Secrets ───────────────────────────────────────────────────────
-*/secrets.sops.yml
-*/secrets.sops.yaml
+*secrets.sops.yml*
+*secrets.sops.yaml*
 *secret*
 *password*
 *credentials*
@@ -11,10 +11,10 @@
 *.pfx
 *.p12
 *.age
-id_rsa
-id_ed25519
-*_rsa
-*_ecdsa
+*id_rsa*
+*id_ed25519*
+*_rsa*
+*_ecdsa*
 
 # ── Ansible runtime ───────────────────────────────────────────────
 *.retry
