@@ -1,8 +1,8 @@
 # .gitignore
 
 # ── Secrets ───────────────────────────────────────────────────────
-vars/secrets.sops.yml
-vars/secrets.sops.yaml
+*/secrets.sops.yml
+*/secrets.sops.yaml
 *secret*
 *password*
 *credentials*
