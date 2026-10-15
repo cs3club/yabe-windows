@@ -2,6 +2,7 @@
 
 # ── Secrets ───────────────────────────────────────────────────────
 vars/secrets.sops.yml
+vars/secrets.sops.yaml
 *secret*
 *password*
 *credentials*
