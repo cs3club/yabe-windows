@@ -4,13 +4,17 @@
 # Run with:
 #   ansible-playbook site.yml --check --diff   (dry run first, always)
 #   ansible-playbook site.yml                  (apply)
-#   ansible-playbook site.yml --tags <tag>     (run one role only)
-
+#   ansible-playbook site.yml --tags <tag>     (one role, e.g. common, or one area, e.g. firewall)
+#   ansible-playbook site.yml --limit <host>   (one machine, e.g. dc01)
+# Variables and decrypted secrets load automatically from
+# inventory/group_vars/all/ (see README "How secrets are loaded").
+ 
 - name: All plays
   hosts: all
   gather_facts: true
   roles:
     # Baseline hardening for every host. Run one area with e.g.
-    # --tags protocols (see roles/win_hardening/tasks/main.yml for the tags).
+    # --tags protocols (see roles/common/tasks/main.yml for the tags).
     - role: common
       tags: common
+ 
