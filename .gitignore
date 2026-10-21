@@ -5,7 +5,6 @@
 *secrets.sops.yaml*
 *secret*
 *password*
-*credentials*
 *.pem
 *.key
 *.pfx
