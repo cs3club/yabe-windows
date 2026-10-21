@@ -9,8 +9,8 @@
 - name: All plays
   hosts: all
   gather_facts: true
-  roles: []
-  # Add roles here as you build them, e.g.:
-  # roles:
-  #   - role: dc01
-  #     tags: dc01
+  roles:
+    # Baseline hardening for every host. Run one area with e.g.
+    # --tags protocols (see roles/win_hardening/tasks/main.yml for the tags).
+    - role: win_hardening
+      tags: win_hardening

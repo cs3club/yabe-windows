@@ -1,0 +1,68 @@
+---
+# roles/win_hardening/tasks/firewall.yml
+# Tag: firewall
+# Runs LAST (see tasks/main.yml). The order of tasks inside this file is the
+# lockout protection:
+#   1. allow WinRM            (so step 3 can never cut Ansible off)
+#   2. allow each host's scored services
+#   3. switch the firewall on with inbound = block
+# Test with: --tags firewall --limit <one host> --check --diff
+# If WinRM is ever lost, fix it from the VM console:
+#   Set-NetFirewallProfile -All -Enabled False
+ 
+- name: Allow WinRM from the management sources (keeps Ansible connected)
+  ansible.windows.win_firewall_rule:
+    name: Hardening - WinRM HTTP
+    description: Managed by Ansible (win_hardening). Ansible connects through this rule.
+    direction: in
+    action: allow
+    protocol: tcp
+    localport: "5985"
+    remoteip: "{{ win_hardening_mgmt_sources }}"
+    profiles: [domain, private, public]
+    enabled: true
+    state: present
+ 
+# A host gets a rule when it is named in applies_to, or one of its groups is
+# ("all" matches everyone). group_names is a magic variable: the list of
+# inventory groups the current host belongs to.
+- name: Allow inbound ports for this host's services
+  ansible.windows.win_firewall_rule:
+    name: "Hardening - {{ item.name }}"
+    description: Managed by Ansible (win_hardening).
+    direction: in
+    action: allow
+    protocol: "{{ item.protocol }}"
+    localport: "{{ item.port }}"
+    remoteip: "{{ win_hardening_mgmt_sources if item.mgmt | default(false) else 'any' }}"
+    profiles: [domain, private, public]
+    enabled: true
+    state: present
+  loop: "{{ win_hardening_firewall_rules }}"
+  loop_control:
+    label: "{{ item.name }} {{ item.protocol }}/{{ item.port }}"
+  when: item.applies_to | intersect(group_names + [inventory_hostname, 'all']) | length > 0
+ 
+# Windows ships its own WinRM and RDP allow rules that accept ANY source.
+# While those stay on, narrowing win_hardening_mgmt_sources does nothing,
+# so they are switched off only once you have narrowed it.
+# Our "Hardening - WinRM HTTP" rule above is created first, so this is safe.
+- name: Disable built-in WinRM/RDP rules once management sources are narrowed
+  ansible.windows.win_firewall_rule:
+    group: "{{ item }}"
+    enabled: false
+  loop:
+    - Windows Remote Management
+    - Remote Desktop
+  when: win_hardening_mgmt_sources != 'any'
+ 
+# Blocks inbound traffic that no rule allows. Rules that Windows added when
+# roles were installed (AD DS, DNS, DHCP, File Server, IIS) stay in place.
+# Allow rules the red team adds are NOT removed here; review them with
+# ansible.windows.win_firewall_rule_info or Get-NetFirewallRule.
+- name: Turn on the firewall for all profiles and block unsolicited inbound
+  ansible.windows.win_firewall:
+    profiles: [Domain, Private, Public]
+    state: enabled
+    inbound_action: block
+    outbound_action: allow

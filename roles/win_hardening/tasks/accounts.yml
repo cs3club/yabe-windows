@@ -1,0 +1,58 @@
+---
+# roles/win_hardening/tasks/accounts.yml
+# Tag: accounts
+# Local account policy, written with community.windows.win_security_policy
+# (the same thing "secpol.msc" / secedit edits).
+#
+# Domain controllers have no local accounts: their "local" policy IS the
+# domain, and the Default Domain Policy GPO decides password and lockout
+# rules there. So the password/lockout task runs on every host EXCEPT ones
+# that are already promoted DCs; the future GPO role will own those
+# settings for the domain.
+
+- name: Disable the Guest account and reversible password storage
+  community.windows.win_security_policy:
+    section: System Access
+    key: "{{ item.key }}"
+    value: "{{ item.value }}"
+  loop:
+    - { key: EnableGuestAccount, value: 0 }
+    - { key: ClearTextPassword, value: 0 }   # "store passwords using reversible encryption"
+  loop_control:
+    label: "{{ item.key }}={{ item.value }}"
+
+# Order matters. Windows rejects any change that would leave
+# ResetLockoutCount (the "reset counter after" window) LONGER than
+# LockoutDuration, with "The parameter is incorrect". A fresh install
+# already has both at 30 minutes, so when LOWERING them the reset window
+# must go first (reset 15 <= duration 30, then duration 15 >= reset 15).
+# If you ever RAISE them above the current values, swap the last two items
+# for one run, otherwise the reset step hits the same error.
+# The built-in Administrator (what Ansible uses) cannot be locked out on
+# Server 2016/2019/2022, so a red-team lockout spray against it can't cut
+# Ansible off. Newer builds (Server 2025, i.e. dc02 before promotion) add an
+# "Allow Administrator account lockout" policy, so check that on dc02.
+#
+# Why a fact instead of a group: the domain_controllers GROUP says what a
+# host is MEANT to be, but dc01/dc02 are plain standalone servers until they
+# are promoted. The windows_domain_role FACT (gathered live at the
+# start of the play) says what the host IS right now. Facts are read from
+# the ansible_facts dictionary WITHOUT the "ansible_" prefix; the old
+# top-level ansible_windows_domain_role form is deprecated. So DCs get this local
+# policy until promotion, and Ansible stops touching it afterwards, without
+# fighting the Default Domain Policy (which would make the task report
+# "changed" on every run and flip the domain policy back and forth).
+- name: Set local password and lockout policy (all hosts except promoted DCs)
+  community.windows.win_security_policy:
+    section: System Access
+    key: "{{ item.key }}"
+    value: "{{ item.value }}"
+  loop:
+    - { key: MinimumPasswordLength, value: "{{ win_hardening_password_min_length }}" }
+    - { key: PasswordComplexity, value: 1 }
+    - { key: LockoutBadCount, value: "{{ win_hardening_lockout_threshold }}" }
+    - { key: ResetLockoutCount, value: "{{ win_hardening_lockout_reset_minutes }}" }
+    - { key: LockoutDuration, value: "{{ win_hardening_lockout_duration_minutes }}" }
+  loop_control:
+    label: "{{ item.key }}={{ item.value }}"
+  when: ansible_facts['windows_domain_role'] not in ['Primary domain controller', 'Backup domain controller']
