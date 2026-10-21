@@ -1,5 +1,5 @@
 ---
-# roles/win_hardening/tasks/main.yml
+# roles/common/tasks/main.yml
 # Entry point for the role. It does no work itself; it pulls in one task
 # file per hardening area and tags it, so a single area can be run with:
 #   ansible-playbook site.yml --tags protocols

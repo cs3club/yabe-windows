@@ -1,16 +1,16 @@
 ---
-# roles/win_hardening/tasks/services.yml
+# roles/common/tasks/services.yml
 # Tag: services
 # Turns off services we don't need and tightens RDP.
  
 # win_service fails if a listed service is not installed, so only list
-# services that exist on every host (see win_hardening_disabled_services).
+# services that exist on every host (see common_disabled_services).
 - name: Stop and disable unneeded services
   ansible.windows.win_service:
     name: "{{ item }}"
     start_mode: disabled
     state: stopped
-  loop: "{{ win_hardening_disabled_services }}"
+  loop: "{{ common_disabled_services }}"
  
 # UserAuthentication = 1 turns on Network Level Authentication: you must
 # log in BEFORE a desktop session is created, which blocks pre-auth RDP
@@ -27,4 +27,5 @@
     - { name: SecurityLayer, data: 2 }
   loop_control:
     label: "{{ item.name }}={{ item.data }}"
+ 
  

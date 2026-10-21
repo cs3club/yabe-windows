@@ -1,5 +1,5 @@
 ---
-# roles/win_hardening/tasks/logging.yml
+# roles/common/tasks/logging.yml
 # Tag: logging
 # Turns on the event logging we need to SEE what the red team does:
 # audit policy (Security log), process command lines, PowerShell script
@@ -69,6 +69,6 @@
   ansible.windows.win_eventlog:
     name: "{{ item.key }}"
     maximum_size: "{{ item.value }}"
-  loop: "{{ win_hardening_eventlog_sizes | dict2items }}"
+  loop: "{{ common_eventlog_sizes | dict2items }}"
   loop_control:
     label: "{{ item.key }}={{ item.value }}"

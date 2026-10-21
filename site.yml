@@ -12,5 +12,5 @@
   roles:
     # Baseline hardening for every host. Run one area with e.g.
     # --tags protocols (see roles/win_hardening/tasks/main.yml for the tags).
-    - role: win_hardening
-      tags: win_hardening
+    - role: common
+      tags: common

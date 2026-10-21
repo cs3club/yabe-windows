@@ -1,13 +1,13 @@
 ---
-# roles/win_hardening/tasks/protocols.yml
+# roles/common/tasks/protocols.yml
 # Tag: protocols
 # Turns off old network protocols that attackers abuse to steal, relay or
 # enumerate credentials. None of this affects Ansible's own login: WinRM
 # authenticates with NTLMv2 over HTTP, which stays allowed.
 # Registry changes to the SMB server are read when the service starts, so
 # those tasks notify the reboot handler (which only reboots if
-# win_hardening_allow_reboot is true).
-
+# common_allow_reboot is true).
+ 
 - name: Disable the SMBv1 server (EternalBlue / WannaCry)
   ansible.windows.win_regedit:
     path: HKLM:\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters
@@ -15,7 +15,7 @@
     data: 0
     type: dword
   notify: Reboot Windows host
-
+ 
 - name: Require SMB signing (stops SMB relay attacks)
   ansible.windows.win_regedit:
     path: "{{ item.path }}"
@@ -29,7 +29,7 @@
   loop_control:
     label: "{{ item.path | win_dirname | win_basename }}\\{{ item.name }}"
   notify: Reboot Windows host
-
+ 
 - name: Disable LLMNR and mDNS (Responder-style name poisoning)
   ansible.windows.win_regedit:
     path: "{{ item.path }}"
@@ -41,7 +41,7 @@
     - { path: 'HKLM:\SYSTEM\CurrentControlSet\Services\Dnscache\Parameters', name: EnableMDNS }
   loop_control:
     label: "{{ item.name }}"
-
+ 
 # NodeType 2 = "P-node": NetBIOS names are only resolved by asking a WINS
 # server (we have none), never by broadcasting to the subnet. Broadcasts are
 # what Responder answers, so this removes the attack without having to edit
@@ -52,7 +52,7 @@
     name: NodeType
     data: 2
     type: dword
-
+ 
 - name: Allow only NTLMv2 and stop storing LM hashes
   ansible.windows.win_regedit:
     path: HKLM:\SYSTEM\CurrentControlSet\Control\Lsa
@@ -64,7 +64,7 @@
     - { name: NoLMHash, data: 1 }
   loop_control:
     label: "{{ item.name }}={{ item.data }}"
-
+ 
 - name: Block anonymous (null session) enumeration of users and shares
   ansible.windows.win_regedit:
     path: "{{ item.path }}"
@@ -78,7 +78,7 @@
     - { path: 'HKLM:\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters', name: RestrictNullSessAccess, data: 1 }
   loop_control:
     label: "{{ item.name }}={{ item.data }}"
-
+ 
 - name: Block anonymous SID-to-name lookups
   community.windows.win_security_policy:
     section: System Access

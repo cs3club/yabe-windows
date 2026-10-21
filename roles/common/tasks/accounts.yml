@@ -1,5 +1,5 @@
 ---
-# roles/win_hardening/tasks/accounts.yml
+# roles/common/tasks/accounts.yml
 # Tag: accounts
 # Local account policy, written with community.windows.win_security_policy
 # (the same thing "secpol.msc" / secedit edits).
@@ -9,7 +9,7 @@
 # rules there. So the password/lockout task runs on every host EXCEPT ones
 # that are already promoted DCs; the future GPO role will own those
 # settings for the domain.
-
+ 
 - name: Disable the Guest account and reversible password storage
   community.windows.win_security_policy:
     section: System Access
@@ -20,7 +20,7 @@
     - { key: ClearTextPassword, value: 0 }   # "store passwords using reversible encryption"
   loop_control:
     label: "{{ item.key }}={{ item.value }}"
-
+ 
 # Order matters. Windows rejects any change that would leave
 # ResetLockoutCount (the "reset counter after" window) LONGER than
 # LockoutDuration, with "The parameter is incorrect". A fresh install
@@ -48,11 +48,12 @@
     key: "{{ item.key }}"
     value: "{{ item.value }}"
   loop:
-    - { key: MinimumPasswordLength, value: "{{ win_hardening_password_min_length }}" }
+    - { key: MinimumPasswordLength, value: "{{ common_password_min_length }}" }
     - { key: PasswordComplexity, value: 1 }
-    - { key: LockoutBadCount, value: "{{ win_hardening_lockout_threshold }}" }
-    - { key: ResetLockoutCount, value: "{{ win_hardening_lockout_reset_minutes }}" }
-    - { key: LockoutDuration, value: "{{ win_hardening_lockout_duration_minutes }}" }
+    - { key: LockoutBadCount, value: "{{ common_lockout_threshold }}" }
+    - { key: ResetLockoutCount, value: "{{ common_lockout_reset_minutes }}" }
+    - { key: LockoutDuration, value: "{{ common_lockout_duration_minutes }}" }
   loop_control:
     label: "{{ item.key }}={{ item.value }}"
   when: ansible_facts['windows_domain_role'] not in ['Primary domain controller', 'Backup domain controller']
+ 

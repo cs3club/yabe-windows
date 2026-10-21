@@ -1,10 +1,10 @@
 ---
-# roles/win_hardening/vars/main.yml
-# Settings for the win_hardening role.
+# roles/common/vars/main.yml
+# Settings for the common role.
 # Role vars have HIGH precedence: they beat inventory, group_vars and
 # host_vars, and only -e (extra vars) or set_fact can override them.
 # To change a value, edit it here (or pass it with -e for a one-off run).
-# Every name starts with "win_hardening_" so it can't collide with other roles.
+# Every name starts with "common_" so it can't collide with other roles.
 # Fixed security settings (registry values that are always the same) live in
 # the task files, not here. This file only holds things you might change.
  
@@ -12,33 +12,33 @@
 # Some settings (LSA protection) only take effect after a reboot.
 # false = never reboot automatically, just warn. Rebooting mid-competition
 # takes scored services down, so a human should choose when.
-win_hardening_allow_reboot: false
+common_allow_reboot: false
  
 # ── credentials ───────────────────────────────────────────────────
 # Run LSASS as a protected process (blocks Mimikatz-style memory reads).
 # Can break third-party software that injects into LSASS. Needs a reboot.
-win_hardening_lsa_protection: true
+common_lsa_protection: true
  
 # ── accounts ──────────────────────────────────────────────────────
 # Local password/lockout policy. Applied to every host that is not (yet) a
 # promoted DC; once promoted, the domain's Default Domain Policy takes over
 # (future GPO role). NOTE: before promotion this also applies to the DSRM
 # safe_mode_password, which must then be >= this length and complex.
-win_hardening_password_min_length: 14
-win_hardening_lockout_threshold: 10        # bad attempts before lockout (0 = never)
-win_hardening_lockout_duration_minutes: 15
-win_hardening_lockout_reset_minutes: 15    # must be <= duration
+common_password_min_length: 14
+common_lockout_threshold: 10        # bad attempts before lockout (0 = never)
+common_lockout_duration_minutes: 15
+common_lockout_reset_minutes: 15    # must be <= duration
  
 # ── services ──────────────────────────────────────────────────────
 # Services to stop and disable on every host. None of our four machines
 # is a print server, so the Print Spooler (PrintNightmare) can go everywhere.
-win_hardening_disabled_services:
+common_disabled_services:
   - Spooler
  
 # ── logging ───────────────────────────────────────────────────────
 # Maximum size of each classic event log. Bigger logs mean an attack
 # can't push the evidence out before we read it.
-win_hardening_eventlog_sizes:
+common_eventlog_sizes:
   Security: 512MB
   System: 128MB
   Application: 128MB
@@ -48,12 +48,12 @@ win_hardening_eventlog_sizes:
 # Who may reach the management ports (WinRM, RDP). "any" keeps today's
 # behaviour; change it to the Ansible machine's/team's IPs once known,
 # e.g. "10.30.20.50" or "10.30.20.0/24". Get this wrong and we lose WinRM.
-win_hardening_mgmt_sources: any
+common_mgmt_sources: any
  
 # Inbound allow rules. "applies_to" lists group names and/or host names;
 # a host gets the rule if it is in any of them. WinRM is always added by the
 # task file itself so it can't be forgotten here.
-win_hardening_firewall_rules:
+common_firewall_rules:
   - { name: RDP,              protocol: tcp, port: "3389", applies_to: [all], mgmt: true }
   # Domain controllers: AD DS, DNS, Kerberos, time
   - { name: DNS TCP,          protocol: tcp, port: "53",   applies_to: [domain_controllers] }
@@ -70,3 +70,4 @@ win_hardening_firewall_rules:
   # Per-host services
   - { name: DHCP Server,      protocol: udp, port: "67",   applies_to: [dc02] }
   - { name: HTTP/HTTPS,       protocol: tcp, port: "80,443", applies_to: [app01] }
+ 

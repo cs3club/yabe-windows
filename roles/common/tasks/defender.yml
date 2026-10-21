@@ -1,5 +1,5 @@
 ---
-# roles/win_hardening/tasks/defender.yml
+# roles/common/tasks/defender.yml
 # Tag: defender
 # Defender's real-time protection is ON by default on Server 2016 and later,
 # so on a clean machine these tasks report "ok" and change nothing. Their job
@@ -12,13 +12,13 @@
 # while these values exist, Set-MpPreference cannot switch the protections
 # off. They are the same values the "Microsoft Defender Antivirus" GPO
 # settings write, so the future GPO role can take them over unchanged.
-
+ 
 - name: Make sure the Defender feature is installed
   ansible.windows.win_feature:
     name: Windows-Defender
     state: present
   notify: Reboot Windows host
-
+ 
 # The value names say "Disable...", so 0 means "not disabled" = protection on.
 - name: Enforce Defender protections through policy
   ansible.windows.win_regedit:
@@ -35,7 +35,7 @@
     - { path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection', name: DisableScriptScanning, data: 0 }
   loop_control:
     label: "{{ item.name }}={{ item.data }}"
-
+ 
 # Exclusions are a common red-team trick for hiding tools ("exclude
 # C:\Windows\Temp"). Each excluded path/process/extension is stored as a
 # value NAME under these keys, both in Defender's own settings and in policy.
@@ -51,15 +51,15 @@
     - HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Exclusions\Paths
     - HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Exclusions\Processes
     - HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Exclusions\Extensions
-  register: win_hardening_defender_exclusions
-
+  register: common_defender_exclusions
+ 
 # A registered loop stores one result per item in .results; each result
 # keeps its own "item" so we know which key it came from. A key that doesn't
 # exist has no "properties", hence the default({}).
 - name: Warn about Defender exclusions
   ansible.builtin.debug:
     msg: "Exclusions found, check they are legitimate: {{ item.properties.keys() | list }}"
-  loop: "{{ win_hardening_defender_exclusions.results }}"
+  loop: "{{ common_defender_exclusions.results }}"
   loop_control:
     label: "{{ item.item }}"
   when: item.properties | default({}) | length > 0

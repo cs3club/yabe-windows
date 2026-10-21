@@ -1,5 +1,5 @@
 ---
-# roles/win_hardening/tasks/firewall.yml
+# roles/common/tasks/firewall.yml
 # Tag: firewall
 # Runs LAST (see tasks/main.yml). The order of tasks inside this file is the
 # lockout protection:
@@ -13,12 +13,12 @@
 - name: Allow WinRM from the management sources (keeps Ansible connected)
   ansible.windows.win_firewall_rule:
     name: Hardening - WinRM HTTP
-    description: Managed by Ansible (win_hardening). Ansible connects through this rule.
+    description: Managed by Ansible (common role). Ansible connects through this rule.
     direction: in
     action: allow
     protocol: tcp
     localport: "5985"
-    remoteip: "{{ win_hardening_mgmt_sources }}"
+    remoteip: "{{ common_mgmt_sources }}"
     profiles: [domain, private, public]
     enabled: true
     state: present
@@ -29,22 +29,22 @@
 - name: Allow inbound ports for this host's services
   ansible.windows.win_firewall_rule:
     name: "Hardening - {{ item.name }}"
-    description: Managed by Ansible (win_hardening).
+    description: Managed by Ansible (common role).
     direction: in
     action: allow
     protocol: "{{ item.protocol }}"
     localport: "{{ item.port }}"
-    remoteip: "{{ win_hardening_mgmt_sources if item.mgmt | default(false) else 'any' }}"
+    remoteip: "{{ common_mgmt_sources if item.mgmt | default(false) else 'any' }}"
     profiles: [domain, private, public]
     enabled: true
     state: present
-  loop: "{{ win_hardening_firewall_rules }}"
+  loop: "{{ common_firewall_rules }}"
   loop_control:
     label: "{{ item.name }} {{ item.protocol }}/{{ item.port }}"
   when: item.applies_to | intersect(group_names + [inventory_hostname, 'all']) | length > 0
  
 # Windows ships its own WinRM and RDP allow rules that accept ANY source.
-# While those stay on, narrowing win_hardening_mgmt_sources does nothing,
+# While those stay on, narrowing common_mgmt_sources does nothing,
 # so they are switched off only once you have narrowed it.
 # Our "Hardening - WinRM HTTP" rule above is created first, so this is safe.
 - name: Disable built-in WinRM/RDP rules once management sources are narrowed
@@ -54,7 +54,7 @@
   loop:
     - Windows Remote Management
     - Remote Desktop
-  when: win_hardening_mgmt_sources != 'any'
+  when: common_mgmt_sources != 'any'
  
 # Blocks inbound traffic that no rule allows. Rules that Windows added when
 # roles were installed (AD DS, DNS, DHCP, File Server, IIS) stay in place.
@@ -66,3 +66,4 @@
     state: enabled
     inbound_action: block
     outbound_action: allow
+ 
