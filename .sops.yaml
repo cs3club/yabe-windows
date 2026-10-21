@@ -6,7 +6,7 @@
 # Public keys only. NEVER put an AGE-SECRET-KEY here.
 #
 # Recipients:
-#   age1uht75...  (original key from the SOPS setup)
+#   age1uht75...  csquinn
 #   age16mr4e...  stACk-png
 creation_rules:
   - age: >-
