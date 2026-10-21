@@ -1,4 +1,14 @@
-#You will all need to add an age key to this file for SOPS to work
+# .sops.yaml
+# SOPS configuration: which age public keys secrets files are encrypted for.
+# You will all need to add an age key to this file for SOPS to work.
+# To add yours: run `age-keygen -y ~/.config/sops/age/keys.txt` and append
+# the printed age1... public key below, with a comma after the previous key.
+# Public keys only. NEVER put an AGE-SECRET-KEY here.
+#
+# Recipients:
+#   age1uht75...  csquinn
+#   age16mr4e...  stACk-png
 creation_rules:
   - age: >-
-      age1uht75az3sfqjemjf9dup750hqnfqmelue2prce5e6thf35fag90syt84yz
+      age1uht75az3sfqjemjf9dup750hqnfqmelue2prce5e6thf35fag90syt84yz,
+      age16mr4epgc3nuwg80m3rrfufsgrjdqd8s3fsrcnfllemktm6yvmelsgw6ad9
