@@ -5,3 +5,29 @@
 
 domain: "yabe.corp"
 
+
+# -- FS01-WIN file server (fileserver role) ---------------------------------
+# Computer name. Windows limits this to 15 characters.
+fileserver_hostname: "fs01-win"
+
+# Windows features the file server needs.
+fileserver_features:
+  - FS-FileServer      # SMB file sharing
+  - FS-DFS-Namespace   # DFS Namespaces, for \\yabe.corp\files later
+
+# Folder on fs01 that holds every share.
+fileserver_share_root: 'C:\Shares'
+
+# SMB shares from the planning document: public, departments, home.
+# Share permissions are temporary until fs01 joins yabe.corp and AD groups exist.
+fileserver_shares:
+  - name: Public
+    description: "Yabe company-wide files"
+    full: Administrators
+    change: Everyone
+  - name: Departments
+    description: "Yabe department files"
+    full: Administrators
+  - name: Home
+    description: "Yabe user home folders"
+    full: Administrators
