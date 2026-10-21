@@ -14,3 +14,16 @@
   # roles:
   #   - role: dc01
   #     tags: dc01
+
+# FS01-WIN: SMB file server (owner: stACk-png)
+# Secrets are SOPS-encrypted, so run through sops exec-file:
+#   sops exec-file --no-fifo vars/secrets.sops.yml \
+#     'ansible-playbook site.yml --limit fs01-win --tags fileserver -e @{}'
+- name: FS01-WIN file server
+  hosts: fs01-win
+  gather_facts: true
+  vars_files:
+    - vars/main.yml
+  roles:
+    - role: fileserver
+      tags: fileserver
