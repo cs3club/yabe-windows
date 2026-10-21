@@ -1,0 +1,74 @@
+---
+# roles/common/tasks/logging.yml
+# Tag: logging
+# Turns on the event logging we need to SEE what the red team does:
+# audit policy (Security log), process command lines, PowerShell script
+# blocks, and bigger logs so evidence isn't overwritten.
+ 
+# Without this, an old-style "category" audit policy (e.g. from a GPO) can
+# silently override the detailed subcategory settings below.
+- name: Make subcategory audit settings take priority
+  ansible.windows.win_regedit:
+    path: HKLM:\SYSTEM\CurrentControlSet\Control\Lsa
+    name: SCENoApplyLegacyAuditPolicy
+    data: 1
+    type: dword
+ 
+# Subcategory names must match "auditpol /list /subcategory:*" exactly
+# (English). The Kerberos and Directory Service ones only produce events on
+# DCs; on member servers they are harmless no-ops.
+- name: Set the advanced audit policy
+  ansible.windows.win_audit_policy_system:
+    subcategory: "{{ item.subcategory }}"
+    audit_type: "{{ item.audit_type }}"
+  loop:
+    - { subcategory: Credential Validation,              audit_type: [success, failure] }
+    - { subcategory: Kerberos Authentication Service,    audit_type: [success, failure] }
+    - { subcategory: Kerberos Service Ticket Operations, audit_type: [success, failure] }
+    - { subcategory: Logon,                              audit_type: [success, failure] }
+    - { subcategory: Logoff,                             audit_type: [success] }
+    - { subcategory: Special Logon,                      audit_type: [success] }
+    - { subcategory: Account Lockout,                    audit_type: [failure] }
+    - { subcategory: User Account Management,            audit_type: [success, failure] }
+    - { subcategory: Security Group Management,          audit_type: [success, failure] }
+    - { subcategory: Computer Account Management,        audit_type: [success, failure] }
+    - { subcategory: Directory Service Changes,          audit_type: [success] }
+    - { subcategory: Process Creation,                   audit_type: [success] }
+    - { subcategory: Audit Policy Change,                audit_type: [success, failure] }
+    - { subcategory: Authentication Policy Change,       audit_type: [success] }
+    - { subcategory: Sensitive Privilege Use,            audit_type: [success, failure] }
+    - { subcategory: Security System Extension,          audit_type: [success] }
+    - { subcategory: System Integrity,                   audit_type: [success, failure] }
+    - { subcategory: Other Object Access Events,         audit_type: [success, failure] }  # scheduled tasks
+  loop_control:
+    label: "{{ item.subcategory }}"
+ 
+# Event 4688 (process created) is far more useful with the full command line.
+- name: Include command lines in process creation events
+  ansible.windows.win_regedit:
+    path: HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\Audit
+    name: ProcessCreationIncludeCmdLine_Enabled
+    data: 1
+    type: dword
+ 
+# Logs every PowerShell script block that runs (event 4104 in
+# Microsoft-Windows-PowerShell/Operational), including decoded/obfuscated
+# code. Ansible's own modules are PowerShell too, so expect them in this
+# log, and treat the log as sensitive: script contents can include values
+# passed to them.
+- name: Enable PowerShell script block logging
+  ansible.windows.win_regedit:
+    path: HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging
+    name: EnableScriptBlockLogging
+    data: 1
+    type: dword
+ 
+# dict2items turns {Security: 512MB, ...} into
+# [{key: Security, value: 512MB}, ...] so we can loop over it.
+- name: Increase event log sizes
+  ansible.windows.win_eventlog:
+    name: "{{ item.key }}"
+    maximum_size: "{{ item.value }}"
+  loop: "{{ common_eventlog_sizes | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}={{ item.value }}"

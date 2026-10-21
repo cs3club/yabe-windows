@@ -1,0 +1,41 @@
+---
+# roles/common/tasks/main.yml
+# Entry point for the role. It does no work itself; it pulls in one task
+# file per hardening area and tags it, so a single area can be run with:
+#   ansible-playbook site.yml --tags protocols
+#
+# import_tasks (not include_tasks) is used on purpose: imports are resolved
+# when the playbook is parsed, so the tag below is inherited by every task
+# inside the file. With include_tasks the tag would only apply to the
+# include line itself, and --tags would skip the tasks inside.
+#
+# Order matters: low-risk areas first, firewall last, so if a firewall
+# mistake cuts off WinRM everything else has already been applied.
+ 
+- name: Disable legacy and insecure network protocols
+  ansible.builtin.import_tasks: protocols.yml
+  tags: protocols
+ 
+- name: Protect credentials in memory
+  ansible.builtin.import_tasks: credentials.yml
+  tags: credentials
+ 
+- name: Lock down local accounts and password policy
+  ansible.builtin.import_tasks: accounts.yml
+  tags: accounts
+ 
+- name: Disable unneeded services and harden RDP
+  ansible.builtin.import_tasks: services.yml
+  tags: services
+ 
+- name: Make sure Microsoft Defender is running
+  ansible.builtin.import_tasks: defender.yml
+  tags: defender
+ 
+- name: Enable audit policy and logging
+  ansible.builtin.import_tasks: logging.yml
+  tags: logging
+ 
+- name: Configure Windows Firewall
+  ansible.builtin.import_tasks: firewall.yml
+  tags: firewall

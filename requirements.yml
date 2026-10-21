@@ -19,3 +19,9 @@ collections:
     version: ">=1.11.0"
     # Active directory - creates the domain, promotes DCs, etc
     # Docs: https://docs.ansible.com/ansible/latest/collections/microsoft/ad/
+
+  - name: community.sops
+    version: ">=2.5.0"
+    # SOPS integration - its vars plugin decrypts *.sops.yml files in
+    # group_vars/host_vars automatically (enabled in ansible.cfg)
+    # Docs: https://docs.ansible.com/ansible/latest/collections/community/sops/

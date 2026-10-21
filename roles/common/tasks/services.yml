@@ -1,0 +1,31 @@
+---
+# roles/common/tasks/services.yml
+# Tag: services
+# Turns off services we don't need and tightens RDP.
+ 
+# win_service fails if a listed service is not installed, so only list
+# services that exist on every host (see common_disabled_services).
+- name: Stop and disable unneeded services
+  ansible.windows.win_service:
+    name: "{{ item }}"
+    start_mode: disabled
+    state: stopped
+  loop: "{{ common_disabled_services }}"
+ 
+# UserAuthentication = 1 turns on Network Level Authentication: you must
+# log in BEFORE a desktop session is created, which blocks pre-auth RDP
+# exploits (BlueKeep-style) and cheap brute forcing. SecurityLayer = 2
+# forces TLS for the RDP connection.
+- name: Require Network Level Authentication and TLS for RDP
+  ansible.windows.win_regedit:
+    path: HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp
+    name: "{{ item.name }}"
+    data: "{{ item.data }}"
+    type: dword
+  loop:
+    - { name: UserAuthentication, data: 1 }
+    - { name: SecurityLayer, data: 2 }
+  loop_control:
+    label: "{{ item.name }}={{ item.data }}"
+ 
+ 

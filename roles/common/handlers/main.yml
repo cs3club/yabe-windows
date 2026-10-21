@@ -1,0 +1,24 @@
+---
+# roles/common/handlers/main.yml
+# Handlers only run when a task that notifies them reports "changed", and
+# they run ONCE at the end of the play no matter how many tasks notified
+# them. Tasks notify the topic "Reboot Windows host"; both handlers below
+# listen for it, and their "when" decides which one actually does something.
+ 
+# common_allow_reboot is set in /yabe-windows/roles/common/vars/main.yml
+- name: Reboot to apply hardening changes
+  ansible.windows.win_reboot:
+    msg: Reboot initiated by Ansible (common role)
+    reboot_timeout: 900   # seconds to wait for WinRM to come back
+  listen: Reboot Windows host
+  when: common_allow_reboot | bool
+ 
+- name: Warn that a reboot is still needed
+  ansible.builtin.debug:
+    msg: >-
+      {{ inventory_hostname }} needs a reboot for some hardening settings
+      (SMBv1, SMB signing, LSA protection, Defender install) to take effect.
+      Reboot it when it is safe, or re-run with -e common_allow_reboot=true.
+  listen: Reboot Windows host
+  when: not (common_allow_reboot | bool)
+ 

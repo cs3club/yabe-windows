@@ -1,0 +1,65 @@
+---
+# roles/common/tasks/defender.yml
+# Tag: defender
+# Defender's real-time protection is ON by default on Server 2016 and later,
+# so on a clean machine these tasks report "ok" and change nothing. Their job
+# is enforcement: "Set-MpPreference -DisableRealtimeMonitoring $true" is one
+# of the first things an attacker with admin rights runs, and re-running the
+# role puts protection back.
+#
+# The settings are written as Group Policy registry values (under
+# HKLM:\SOFTWARE\Policies). Policy overrides Defender's own preferences, so
+# while these values exist, Set-MpPreference cannot switch the protections
+# off. They are the same values the "Microsoft Defender Antivirus" GPO
+# settings write, so the future GPO role can take them over unchanged.
+ 
+- name: Make sure the Defender feature is installed
+  ansible.windows.win_feature:
+    name: Windows-Defender
+    state: present
+  notify: Reboot Windows host
+ 
+# The value names say "Disable...", so 0 means "not disabled" = protection on.
+- name: Enforce Defender protections through policy
+  ansible.windows.win_regedit:
+    path: "{{ item.path }}"
+    name: "{{ item.name }}"
+    data: "{{ item.data }}"
+    type: dword
+  loop:
+    - { path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender', name: DisableAntiSpyware, data: 0 }
+    - { path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender', name: PUAProtection, data: 1 }   # block potentially unwanted apps
+    - { path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection', name: DisableRealtimeMonitoring, data: 0 }
+    - { path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection', name: DisableBehaviorMonitoring, data: 0 }
+    - { path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection', name: DisableIOAVProtection, data: 0 }   # scan downloaded files
+    - { path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection', name: DisableScriptScanning, data: 0 }
+  loop_control:
+    label: "{{ item.name }}={{ item.data }}"
+ 
+# Exclusions are a common red-team trick for hiding tools ("exclude
+# C:\Windows\Temp"). Each excluded path/process/extension is stored as a
+# value NAME under these keys, both in Defender's own settings and in policy.
+# win_reg_stat only reads, so this never changes anything. We report instead
+# of deleting because a scored service may legitimately need an exclusion.
+- name: Read Defender exclusion lists
+  ansible.windows.win_reg_stat:
+    path: "{{ item }}"
+  loop:
+    - HKLM:\SOFTWARE\Microsoft\Windows Defender\Exclusions\Paths
+    - HKLM:\SOFTWARE\Microsoft\Windows Defender\Exclusions\Processes
+    - HKLM:\SOFTWARE\Microsoft\Windows Defender\Exclusions\Extensions
+    - HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Exclusions\Paths
+    - HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Exclusions\Processes
+    - HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Exclusions\Extensions
+  register: common_defender_exclusions
+ 
+# A registered loop stores one result per item in .results; each result
+# keeps its own "item" so we know which key it came from. A key that doesn't
+# exist has no "properties", hence the default({}).
+- name: Warn about Defender exclusions
+  ansible.builtin.debug:
+    msg: "Exclusions found, check they are legitimate: {{ item.properties.keys() | list }}"
+  loop: "{{ common_defender_exclusions.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when: item.properties | default({}) | length > 0
