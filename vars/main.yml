@@ -13,7 +13,6 @@ fileserver_hostname: "fs01-win"
 # Windows features the file server needs.
 fileserver_features:
   - FS-FileServer      # SMB file sharing
-  - FS-DFS-Namespace   # DFS Namespaces, for \\yabe.corp\files later
 
 # Folder on fs01 that holds every share.
 fileserver_share_root: 'C:\Shares'
