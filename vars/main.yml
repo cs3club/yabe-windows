@@ -5,8 +5,3 @@
 
 domain: "yabe.corp"
 
-# connection settings
-# Using WinRM over SSH so we don't have to bootstrap SSH Servers
-ansible_connection: winrm
-ansible_port: 5985
-ansible_winrm_transport: ntlm
