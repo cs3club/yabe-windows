@@ -1,7 +1,8 @@
 # .gitignore
 
 # ── Secrets ───────────────────────────────────────────────────────
-vars/secrets.yml
+*secrets.sops.yml*
+*secrets.sops.yaml*
 *secret*
 *password*
 *credentials*
@@ -10,10 +11,10 @@ vars/secrets.yml
 *.pfx
 *.p12
 *.age
-id_rsa
-id_ed25519
-*_rsa
-*_ecdsa
+*id_rsa*
+*id_ed25519*
+*_rsa*
+*_ecdsa*
 
 # ── Ansible runtime ───────────────────────────────────────────────
 *.retry
@@ -40,4 +41,4 @@ venv/
 *.log
 
 # ── Exceptions ────────────────────────────────────────────────────
-!vars/secrets.yml.example
+!vars/secrets.sops.yml.example
