@@ -1,0 +1,23 @@
+---
+# roles/fileserver/tasks/main.yml
+# Configures FS01-WIN as the Yabe SMB file server.
+# Every tunable value comes from vars/main.yml (the fileserver_* variables).
+
+- name: Set the computer name
+  ansible.windows.win_hostname:
+    name: "{{ fileserver_hostname }}"
+  register: fileserver_hostname_result
+
+- name: Install the file server features
+  ansible.windows.win_feature:
+    name: "{{ fileserver_features }}"
+    state: present
+    include_management_tools: true
+  register: fileserver_features_result
+
+- name: Reboot if the rename or feature install requires it
+  ansible.windows.win_reboot:
+    reboot_timeout: 600
+  when: >-
+    fileserver_hostname_result.reboot_required or
+    fileserver_features_result.reboot_required
