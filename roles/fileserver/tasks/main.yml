@@ -21,3 +21,31 @@
   when: >-
     fileserver_hostname_result.reboot_required or
     fileserver_features_result.reboot_required
+
+- name: Create the share root folder
+  ansible.windows.win_file:
+    path: "{{ fileserver_share_root }}"
+    state: directory
+
+- name: Create a folder for each share
+  ansible.windows.win_file:
+    path: '{{ fileserver_share_root }}\{{ item.name }}'
+    state: directory
+  loop: "{{ fileserver_shares }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Create the SMB shares
+  ansible.windows.win_share:
+    name: "{{ item.name }}"
+    path: '{{ fileserver_share_root }}\{{ item.name }}'
+    description: "{{ item.description | default(omit) }}"
+    full: "{{ item.full | default(omit) }}"
+    change: "{{ item.change | default(omit) }}"
+    read: "{{ item.read | default(omit) }}"
+    list: false
+    encrypt: "{{ fileserver_smb_encrypt }}"
+    state: present
+  loop: "{{ fileserver_shares }}"
+  loop_control:
+    label: "{{ item.name }}"
