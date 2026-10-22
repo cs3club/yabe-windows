@@ -23,14 +23,28 @@ fileserver_shares:
   - name: Public
     description: "Yabe company-wide files"
     full: Administrators
-    change: Everyone
+    read: Everyone
+    ntfs_allow:
+      - user: Authenticated Users
+        rights: ReadAndExecute
   - name: Departments
     description: "Yabe department files"
     full: Administrators
+    ntfs_allow: []
   - name: Home
     description: "Yabe user home folders"
     full: Administrators
+    ntfs_allow: []
 
 # Encrypt SMB traffic to every share (requires SMB 3 clients).
 # If the scoring engine or a client can't connect, test with this set to false.
 fileserver_smb_encrypt: true
+
+# NTFS permissions on the share root (C:\Shares). Inheritance from C:\ is
+# turned off, so these are the ONLY entries here; every share folder
+# inherits them, plus its own ntfs_allow entries above.
+fileserver_root_ntfs_allow:
+  - user: SYSTEM
+    rights: FullControl
+  - user: Administrators
+    rights: FullControl
