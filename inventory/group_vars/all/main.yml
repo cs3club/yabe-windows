@@ -1,5 +1,5 @@
 ---
-# vars/main.yml
+# inventory/group_vars/all/main.yml
 # Non-secret variables for this project.
 # All tunable values live here — never hardcoded in tasks.
 
