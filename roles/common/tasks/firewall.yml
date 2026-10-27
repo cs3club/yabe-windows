@@ -20,7 +20,7 @@
     action: allow
     protocol: tcp
     localport: "5985"
-    remoteip: any
+    remoteip: any #Will need updated once we transition to the CS3 server
     profiles: [domain, private, public]
     enabled: true
     state: present
@@ -36,7 +36,7 @@
     action: allow
     protocol: "{{ item.protocol }}"
     localport: "{{ item.port }}"
-    remoteip: any
+    remoteip: any #Will need updated once we transition to the CS3 server. Only AD-specific roles will be locked to localsubnet
     profiles: [domain, private, public]
     enabled: true
     state: present

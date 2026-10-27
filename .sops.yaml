@@ -1,5 +1,5 @@
 #You will all need to add an age key to this file for SOPS to work.
-#Add your public key (age1...) to the list below, separated by a comma, then have
+#Add your public key (age1...) to the list below (add comma after previous entry and then do a newline), then have
 #someone who can already decrypt run (from the repo root):
 #  sops updatekeys inventory/group_vars/all/secrets.sops.yml
 creation_rules:

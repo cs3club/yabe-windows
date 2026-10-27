@@ -56,12 +56,6 @@ View or change the secrets with:
 
     sops edit inventory/group_vars/all/secrets.sops.yml
 
-**Coming from the old `sops exec-file` setup?** Your secrets file is gitignored,
-so `git pull` doesn't move it. Move your copy once:
-
-    mkdir -p inventory/group_vars/all
-    mv vars/secrets.sops.yml inventory/group_vars/all/secrets.sops.yml
-
 ## Structure
 
     site.yml                                   <- entry point
@@ -74,6 +68,30 @@ so `git pull` doesn't move it. Move your copy once:
     vars/secrets.sops.yml.example              <- secrets template (committed)
     roles/                                     <- one subdirectory per role
     roles/common/                              <- baseline hardening for every host
+
+### Tags
+
+Run part of the playbook with `--tags`, or leave part out with `--skip-tags`.
+Combine tags with commas (`--tags protocols,logging`). To see the tags or
+preview which tasks a tag selects, without running anything:
+
+    ansible-playbook site.yml --list-tags
+    ansible-playbook site.yml --list-tasks --tags firewall
+
+| Tag           | What it does                                                                                       | Reboot needed? |
+|---------------|----------------------------------------------------------------------------------------------------|----------------|
+| `common`      | The whole common (baseline) role: every tag below                                                  | see below      |
+| `protocols`   | Disables SMBv1, LLMNR/mDNS, NetBIOS broadcasts, LM/NTLMv1; requires SMB signing; blocks anonymous enumeration | for SMBv1 and SMB signing |
+| `credentials` | Disables WDigest, turns on LSA protection (RunAsPPL), keeps UAC on without breaking Ansible's login | for LSA protection |
+| `accounts`    | Disables Guest and reversible password storage; local password and lockout policy (skipped on promoted DCs) | no |
+| `services`    | Stops and disables the Print Spooler; requires NLA and TLS for RDP                                 | no             |
+| `defender`    | Makes sure Defender is installed and can't be switched off; reports any exclusions                 | if Defender had to be installed |
+| `logging`     | Advanced audit policy, command lines in process events, PowerShell script block logging, bigger event logs | no |
+| `firewall`    | Allow rules for WinRM and each host's services, then firewall on with inbound blocked. Dry run first: `--tags firewall --limit <host> --check --diff` | no |
+
+Reboots never happen automatically; the run ends with a reminder instead.
+Add `-e common_allow_reboot=true` to let Ansible reboot (use `--limit` so
+only one DC goes down at a time).
 
 ## Known issues
 

@@ -5,6 +5,7 @@
 *secrets.sops.yaml*
 *secret*
 *password*
+*cred*
 *.pem
 *.key
 *.pfx
@@ -41,3 +42,4 @@ venv/
 
 # ── Exceptions ────────────────────────────────────────────────────
 !vars/secrets.sops.yml.example
+!roles/common/tasks/credentials.yml
