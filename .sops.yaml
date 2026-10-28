@@ -4,4 +4,5 @@
 #  sops updatekeys inventory/group_vars/all/secrets.sops.yml
 creation_rules:
   - age: >-
-      age1uht75az3sfqjemjf9dup750hqnfqmelue2prce5e6thf35fag90syt84yz
+      age1uht75az3sfqjemjf9dup750hqnfqmelue2prce5e6thf35fag90syt84yz,age1x2ldjrstfne2lzsjssjmwarf3e6mu62r3xj2vfampqsncn9dhdlsknqur6
+
