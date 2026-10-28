@@ -6,11 +6,35 @@
 #   ansible-playbook site.yml                  (apply)
 #   ansible-playbook site.yml --tags <tag>     (run one role only)
 
-- name: All plays
-  hosts: all
+# One play per machine. Plays run top to
+# bottom, one after another, so the order is the build order: the first DC
+# must exist before a second DC or any member server can join the domain.
+# Each play only targets its own host, so --limit is optional.
+
+# Future: settings every machine needs go in a `base` role, first:
+# - name: Base configuration
+#   hosts: all
+#   roles:
+#     - role: base
+#       tags: [base]
+
+- name: DC01 primary domain controller, users and Group Policy
+  hosts: dc01
   gather_facts: true
-  roles: []
-  # Add roles here as you build them, e.g.:
-  # roles:
-  #   - role: dc01
-  #     tags: dc01
+  roles:
+    - role: dc01
+      tags: [dc01]
+
+# Future: dc02 joins as an additional domain controller (needs dc01 running).
+# - name: DC02 additional domain controller and DHCP
+#   hosts: dc02
+#   roles:
+#     - role: dc02
+#       tags: [dc02]
+
+# Future: member servers join the domain once both DCs are up.
+# - name: FS01-WIN file server
+#   hosts: fs01-win
+#   roles:
+#     - role: fs01_win
+#       tags: [fs01_win]

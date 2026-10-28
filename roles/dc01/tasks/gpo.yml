@@ -1,0 +1,137 @@
+---
+# roles/dc01/tasks/gpo.yml
+# Creates every Group Policy Object (GPO) listed in ad_gpos
+# (inventory/group_vars/all/ad.yml), fills in its settings and links it to
+# its OUs. To add a GPO, add an entry to that list; this file never changes.
+# These are new GPOs, never edits to the built-in "Default Domain Policy"
+# (reason in ad.yml). Runs on dc01 only: GPOs live in AD and in the SYSVOL
+# share, both of which the domain copies to dc02 by itself.
+#
+# Why PowerShell for two of the steps: Ansible's AD collection
+# (microsoft.ad) can only *link* a GPO (microsoft.ad.gpo, used below). No Ansible
+# module creates a GPO or sets values inside one, so those two steps call
+# Microsoft's own GroupPolicy cmdlets (New-GPO, Set-GPRegistryValue). Each
+# script reads the current state first and only writes when something is
+# different, so it reports "changed" honestly and is safe to re-run, like a
+# real module. [CmdletBinding(SupportsShouldProcess)] lets the scripts run
+# in --check mode, where they report what they would change without doing it.
+
+# The GroupPolicy cmdlets come with the Group Policy Management Console
+# (GPMC) feature. Promotion doesn't always install it. No reboot needed.
+- name: Install Group Policy Management tools
+  ansible.windows.win_feature:
+    name: GPMC
+    state: present
+
+# Create the empty GPO if a GPO with that name doesn't exist yet, and keep
+# its comment (shown in Group Policy Management) up to date.
+- name: Create the GPOs
+  ansible.windows.win_powershell:
+    error_action: stop
+    parameters:
+      Name: "{{ item.name }}"
+      Comment: "{{ item.comment | default('') }}"
+    script: |
+      [CmdletBinding(SupportsShouldProcess)]
+      param (
+          [Parameter(Mandatory)][string]$Name,
+          [string]$Comment
+      )
+      $Ansible.Changed = $false
+      $gpo = Get-GPO -All | Where-Object DisplayName -eq $Name
+
+      if (-not $gpo) {
+          if ($PSCmdlet.ShouldProcess($Name, 'Create GPO')) {
+              New-GPO -Name $Name -Comment $Comment | Out-Null
+          }
+          $Ansible.Changed = $true
+      }
+      elseif ("$($gpo.Description)" -ne $Comment) {
+          if ($PSCmdlet.ShouldProcess($Name, 'Update GPO comment')) {
+              $gpo.Description = $Comment
+          }
+          $Ansible.Changed = $true
+      }
+  loop: "{{ ad_gpos }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+# Set each registry value inside its GPO. subelements pairs every GPO with
+# each of its registry_values, so one task handles any number of GPOs and
+# settings. item.0 = the GPO, item.1 = one setting.
+# HKCU keys land in the GPO's User Configuration, HKLM in Computer
+# Configuration; Set-GPRegistryValue works that out from the key itself.
+- name: Set the GPO settings
+  ansible.windows.win_powershell:
+    error_action: stop
+    parameters:
+      Name: "{{ item.0.name }}"
+      Key: "{{ item.1.key }}"
+      ValueName: "{{ item.1.name }}"
+      Type: "{{ item.1.type }}"
+      Value: "{{ item.1.value }}"
+    script: |
+      [CmdletBinding(SupportsShouldProcess)]
+      param (
+          [Parameter(Mandatory)][string]$Name,
+          [Parameter(Mandatory)][string]$Key,
+          [Parameter(Mandatory)][string]$ValueName,
+          [Parameter(Mandatory)][string]$Type,
+          [Parameter(Mandatory)][object]$Value
+      )
+      $Ansible.Changed = $false
+
+      # Numbers must be passed as numbers, lists as string arrays.
+      switch ($Type) {
+          'DWord'       { $Value = [int]$Value }
+          'QWord'       { $Value = [long]$Value }
+          'MultiString' { $Value = [string[]]$Value }
+          default       { $Value = [string]$Value }
+      }
+
+      # Read what the GPO holds now. A missing value (or, in --check mode,
+      # a GPO not created yet) throws, which just means "not set".
+      $current = $null
+      try {
+          $current = Get-GPRegistryValue -Name $Name -Key $Key -ValueName $ValueName -ErrorAction Stop
+      }
+      catch { }
+
+      # String values can come back with a trailing null character; strip it
+      # before comparing so an unchanged value isn't reported as changed.
+      $same = $false
+      if ($current) {
+          $currentValue = ($current.Value | ForEach-Object { "$_".TrimEnd([char]0) }) -join "`n"
+          $wantedValue = ($Value | ForEach-Object { "$_" }) -join "`n"
+          $same = ("$($current.Type)" -eq $Type) -and ($currentValue -eq $wantedValue)
+      }
+
+      if (-not $same) {
+          if ($PSCmdlet.ShouldProcess("$Name : $Key\$ValueName", 'Set GPO registry value')) {
+              Set-GPRegistryValue -Name $Name -Key $Key -ValueName $ValueName -Type $Type -Value $Value | Out-Null
+          }
+          $Ansible.Changed = $true
+      }
+  loop: "{{ ad_gpos | subelements('registry_values') }}"
+  loop_control:
+    label: "{{ item.0.name }}: {{ item.1.name }}"
+
+# Linking is what makes a GPO apply: users/computers in the linked OU (and
+# all OUs below it) receive its settings at their next logon or policy
+# refresh (gpupdate). This step has a real module, so no PowerShell.
+# In --check mode a brand-new GPO doesn't exist yet, so the link can't be
+# previewed; errors are ignored in check mode only.
+# Despite its name, microsoft.ad.gpo only manages links (1.12.x). The next
+# microsoft.ad release renames it to microsoft.ad.gpo_link and keeps "gpo"
+# working for a while with a deprecation warning; when you see that
+# warning, change the line below to microsoft.ad.gpo_link.
+- name: Link the GPOs to their OUs
+  microsoft.ad.gpo:
+    name: "{{ item.0.name }}"
+    target: "{{ item.1 }}"
+    enabled: true
+    state: present
+  loop: "{{ ad_gpos | subelements('links') }}"
+  loop_control:
+    label: "{{ item.0.name }} -> {{ item.1 }}"
+  ignore_errors: "{{ ansible_check_mode }}"

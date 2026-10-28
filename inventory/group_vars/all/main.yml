@@ -5,8 +5,22 @@
 
 domain: "yabe.corp"
 
+# The same domain written as an LDAP "distinguished name" (DC=yabe,DC=corp).
+# Active Directory uses this form for paths, e.g. "OU=Yabe Users,DC=yabe,DC=corp".
+# Built from `domain` so the name is only typed once. It lives here (not in a
+# role) because dc01, dc02 and all member servers will all need it.
+domain_dn: "DC={{ domain.split('.') | join(',DC=') }}"
+
 # connection settings
 # Using WinRM over SSH so we don't have to bootstrap SSH Servers
 ansible_connection: winrm
 ansible_port: 5985
 ansible_winrm_transport: ntlm
+
+# Reboots. Several steps need one (promoting a DC, joining the domain).
+# By default Ansible never reboots: it stops that host and asks you to reboot
+# by hand, because a surprise reboot of a DC or scored service is risky.
+# Opt in for one run with:  ansible-playbook site.yml -e allow_reboot=true
+# (add --limit <host> to allow it for one machine only). It is set here
+# for every host, so no role should define its own copy in vars/main.yml:
+allow_reboot: false

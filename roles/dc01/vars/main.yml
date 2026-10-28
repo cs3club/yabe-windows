@@ -1,0 +1,22 @@
+---
+# roles/dc01/vars/main.yml
+# Settings for dc01, the first (primary) domain controller of yabe.corp.
+# Only settings about building dc01 itself live here, prefixed dc01_ so they
+# can't clash with another role. What the domain *contains* (OUs, groups,
+# users, GPOs) lives in inventory/group_vars/all/ad.yml with an ad_ prefix,
+# even though dc01's tasks are what create it; passwords live in the SOPS
+# secrets file.
+
+# ── Forest (tasks/forest.yml) ─────────────────────────────────────
+# A "forest" is the top-level Active Directory container; yabe.corp is the
+# first and only domain in it. The functional level decides which Windows
+# versions can be DCs. WinThreshold = Windows Server 2016, the lowest level
+# a Server 2025 DC (dc02) will join, and the highest dc01 (2016) supports.
+dc01_forest_mode: WinThreshold
+dc01_domain_mode: WinThreshold
+
+# Short pre-2000 style domain name, shown in logins like YABE\c.quinn.
+dc01_netbios_name: YABE
+
+# Promotion needs a reboot; whether Ansible may do it is the shared
+# allow_reboot setting in inventory/group_vars/all/main.yml.

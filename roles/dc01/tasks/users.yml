@@ -1,0 +1,104 @@
+---
+# roles/dc01/tasks/users.yml
+# Creates Yabe's OUs, department groups and employee accounts in Active
+# Directory. All the data comes from inventory/group_vars/all/ad.yml; this
+# file only says how to create it. Runs on dc01 only: AD copies every object
+# to the other domain controllers (dc02) by itself.
+
+# Catch mistakes in ad.yml or the secrets before touching AD.
+- name: Check the user data and starting password
+  ansible.builtin.assert:
+    that:
+      - ad_user_password is defined and ad_user_password | length > 0
+      # every user's dept must match one of ad_departments
+      - ad_users | map(attribute='dept')
+        | difference(ad_departments | map(attribute='name')) | length == 0
+    fail_msg: >-
+      Either ad_user_password is missing from the secrets file
+      (sops edit inventory/group_vars/all/secrets.sops.yml), or a user in
+      inventory/group_vars/all/ad.yml has a dept that is not in ad_departments.
+    quiet: true
+
+# ── OUs ──────────────────────────────────────────────────────────
+# Top-level folders: one for people, one for groups.
+- name: Create the top-level Yabe OUs
+  microsoft.ad.ou:
+    name: "{{ item }}"
+    path: "{{ domain_dn }}"
+    state: present
+  loop:
+    - "{{ ad_users_ou }}"
+    - "{{ ad_groups_ou }}"
+
+# One OU per department inside "Yabe Users", so each department's accounts
+# are easy to find and a GPO could later target a single department.
+- name: Create one OU per department
+  microsoft.ad.ou:
+    name: "{{ item.name }}"
+    path: "OU={{ ad_users_ou }},{{ domain_dn }}"
+    description: "{{ item.description }}"
+    state: present
+  loop: "{{ ad_departments }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+# ── Groups ───────────────────────────────────────────────────────
+# Security groups are what permissions (file shares, websites) get granted
+# to, instead of to individual users. "global" is the standard scope for
+# grouping users of this one domain.
+- name: Create one security group per department
+  microsoft.ad.group:
+    name: "{{ item.group }}"
+    path: "OU={{ ad_groups_ou }},{{ domain_dn }}"
+    description: "{{ item.description }}"
+    scope: global
+    category: security
+    state: present
+  loop: "{{ ad_departments }}"
+  loop_control:
+    label: "{{ item.group }}"
+
+# ── Users ────────────────────────────────────────────────────────
+# Username: first initial + "." + surname, lowercase (Maya Okafor ->
+# m.okafor). It is also the identity Ansible looks the account up by, so if
+# a user's dept changes in ad.yml the existing account is moved to the new
+# OU instead of a second account being created.
+#
+# Notes:
+#  - update_password: on_create sets ad_user_password only when the account
+#    is first made, so a run never resets a password someone changed.
+#  - Password expiry, "change at next logon" etc. are left at the Windows
+#    defaults (to later be covered by hardening roles).
+#  - groups uses `add`, not `set`: Ansible makes sure the user is in their
+#    department group but never removes memberships added elsewhere. (`set`
+#    would also try to remove "Domain Users" on every run and warn.)
+#    Downside: after a dept change, remove the old group by hand. (though 
+#    these are dummy accounts that likely won't move)
+- name: Create the employee accounts
+  microsoft.ad.user:
+    identity: "{{ username }}"
+    name: "{{ item.first }} {{ item.last }}"
+    sam_account_name: "{{ username }}"
+    upn: "{{ username }}@{{ domain }}"
+    firstname: "{{ item.first }}"
+    surname: "{{ item.last }}"
+    display_name: "{{ item.first }} {{ item.last }}"
+    company: Yabe
+    path: "OU={{ item.dept }},OU={{ ad_users_ou }},{{ domain_dn }}"
+    password: "{{ ad_user_password }}"
+    update_password: on_create
+    enabled: true
+    groups:
+      add:
+        - "{{ (ad_departments | selectattr('name', 'equalto', item.dept) | first).group }}"
+    # Extra AD fields shown on the account's Organization tab.
+    attributes:
+      set:
+        title: "{{ item.title }}"
+        department: "{{ item.dept }}"
+    state: present
+  vars:
+    username: "{{ (item.first[0] ~ '.' ~ item.last) | lower }}"
+  loop: "{{ ad_users }}"
+  loop_control:
+    label: "{{ username }} ({{ item.dept }})"
