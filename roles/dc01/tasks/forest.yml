@@ -1,0 +1,91 @@
+---
+# roles/dc01/tasks/forest.yml
+# Turns dc01 from a plain server into the first domain controller of a new
+# Active Directory forest, yabe.corp. Safe to re-run: once the domain
+# exists, the promotion task reports "ok" and changes nothing.
+
+# Fail early with a clear message if the secret was never added, instead of
+# a confusing error from inside the promotion.
+- name: Check that the DSRM password is in the secrets file
+  ansible.builtin.assert:
+    that: safe_mode_password is defined and safe_mode_password | length > 0
+    fail_msg: >-
+      safe_mode_password is missing. Add it with:
+      sops edit inventory/group_vars/all/secrets.sops.yml
+    quiet: true
+
+# One module does the whole promotion: installs the AD DS role (plus its
+# management tools), installs DNS (AD finds DCs through DNS records, so a
+# first DC normally runs DNS itself), and creates the forest and domain.
+# reboot: Windows must restart before AD works. We only let Ansible do that
+# when allow_reboot is true (inventory/group_vars/all/main.yml); otherwise
+# the module just reports that a reboot is needed.
+- name: Create the yabe.corp forest and promote dc01 to domain controller
+  microsoft.ad.domain:
+    dns_domain_name: "{{ domain }}"
+    domain_netbios_name: "{{ dc01_netbios_name }}"
+    forest_mode: "{{ dc01_forest_mode }}"
+    domain_mode: "{{ dc01_domain_mode }}"
+    safe_mode_password: "{{ safe_mode_password }}"
+    install_dns: true
+    reboot: "{{ allow_reboot | bool }}"
+  register: dc01_forest
+
+# Not standard for most playbooks, but deliberate here: we never reboot
+# without permission, and nothing after this point can work until AD is
+# running. So if a reboot is still pending, explain what to do and stop
+# this host cleanly (other hosts in the run carry on).
+# In check mode (--check) nothing was really installed, so later tasks
+# would fail for the same reason; stop there too.
+# Tagged `always` so it also runs when only some tags are picked;
+# dc01_forest is undefined then, hence the default({}).
+- name: Explain why the run stops here
+  ansible.builtin.debug:
+    msg: >-
+      {{ 'Check mode: dc01 is not a domain controller yet, so the AD tasks
+      cannot be previewed. Run without --check to promote it.'
+      if ansible_check_mode else
+      'dc01 was promoted and must reboot before Active Directory works.
+      Reboot it (ansible dc01 -m ansible.windows.win_reboot), then run the
+      same command again. Or re-run with -e allow_reboot=true.' }}
+  when: >-
+    (dc01_forest | default({})).reboot_required | default(false)
+    or (ansible_check_mode and (dc01_forest | default({})) is changed)
+  tags: [always]
+
+- name: Stop dc01 until it has been rebooted
+  ansible.builtin.meta: end_host
+  when: >-
+    (dc01_forest | default({})).reboot_required | default(false)
+    or (ansible_check_mode and (dc01_forest | default({})) is changed)
+  tags: [always]
+
+# After a reboot AD takes a minute or two to start answering. Without this
+# check the user tasks could run too early and fail at random.
+# PowerShell is used because no module simply "waits for AD"; the script only
+# reads (it changes nothing), so it also runs in check mode.
+# It returns one word: 'ready', 'starting' (try again in 15 s, up to 5 min)
+# or 'not_installed' (AD isn't on this host at all, e.g. --tags users was
+# run before the first promotion; fail at once with no pointless waiting).
+- name: Wait until Active Directory answers
+  ansible.windows.win_powershell:
+    script: |
+      if (-not (Get-Command -Name Get-ADDomain -ErrorAction SilentlyContinue)) {
+          $Ansible.Result = 'not_installed'
+          return
+      }
+      try {
+          $null = Get-ADDomain -Server localhost -ErrorAction Stop
+          $Ansible.Result = 'ready'
+      }
+      catch {
+          $Ansible.Result = 'starting'
+      }
+  register: dc01_ad_ready
+  until: dc01_ad_ready.result in ['ready', 'not_installed']
+  retries: 20
+  delay: 15
+  failed_when: dc01_ad_ready.result != 'ready'
+  changed_when: false
+  check_mode: false
+  tags: [always]

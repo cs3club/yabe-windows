@@ -1,0 +1,194 @@
+---
+# inventory/group_vars/all/ad.yml
+# Active Directory data for yabe.corp: OUs, departments, groups, users, GPOs.
+# It is in group_vars/all because it describes the
+# domain, not one machine. dc01 creates these objects (roles/dc01/tasks/
+# users.yml and gpo.yml) and AD replicates them to dc02 on its own; other
+# roles can read the same names later, e.g. fs01-win share permissions or
+# app01 site access.
+# Ansible loads every file in this folder automatically, so nothing needs
+# to include it. Names start with ad_, like ad_user_password in the secrets.
+
+# OUs (Organizational Units) are folders inside AD. Our own top-level OUs
+# keep company objects apart from the built-in "Users" container, and give
+# the GPO something to link to (GPOs can't link to built-in containers).
+ad_users_ou: "Yabe Users"
+ad_groups_ou: "Yabe Groups"
+
+# Yabe is a mock online marketplace, so the departments are the teams that
+# run one. Each gets a child OU under "Yabe Users" and the security group
+# named in `group`, stored in "Yabe Groups". The group name is written out
+# (not built from the department name) so other roles can look it up here,
+# e.g. to give "Engineering Staff" access to a share on fs01-win.
+ad_departments:
+  - name: Engineering
+    group: Engineering Staff
+    description: Builds and runs the website, listings and search
+  - name: Customer Support
+    group: Customer Support Staff
+    description: Buyer help desk, returns and disputes
+  - name: Trust and Safety
+    group: Trust and Safety Staff
+    description: Fraud, counterfeit listings and account takedowns
+  - name: Seller Services
+    group: Seller Services Staff
+    description: Onboarding and supporting sellers
+  - name: Payments
+    group: Payments Staff
+    description: Checkout, seller payouts and refunds
+  - name: Marketing
+    group: Marketing Staff
+    description: Promotions, email campaigns and ads
+
+# 30 employees, 5 per department. These are random dummy accounts, we can
+# add our real names for accounts later.
+# Usernames are built in roles/dc01/tasks/users.yml as first initial + "."
+# + surname, lowercase (Maya Okafor -> m.okafor). The starting password is
+# ad_user_password from the secrets file.
+ad_users:
+  # Engineering
+  - { first: Maya,     last: Okafor,     dept: Engineering,      title: Engineering Manager }
+  - { first: Daniel,   last: Reyes,      dept: Engineering,      title: Senior Software Engineer }
+  - { first: Priya,    last: Natarajan,  dept: Engineering,      title: Software Engineer }
+  - { first: Lucas,    last: Bergstrom,  dept: Engineering,      title: Site Reliability Engineer }
+  - { first: Hannah,   last: Kowalski,   dept: Engineering,      title: QA Engineer }
+  # Customer Support
+  - { first: Jamal,    last: Carter,     dept: Customer Support, title: Support Team Lead }
+  - { first: Sofia,    last: Lindqvist,  dept: Customer Support, title: Support Agent }
+  - { first: Owen,     last: Gallagher,  dept: Customer Support, title: Support Agent }
+  - { first: Aisha,    last: Rahman,     dept: Customer Support, title: Returns Specialist }
+  - { first: Tyler,    last: Brooks,     dept: Customer Support, title: Disputes Specialist }
+  # Trust and Safety
+  - { first: Elena,    last: Petrova,    dept: Trust and Safety, title: Trust and Safety Manager }
+  - { first: Marcus,   last: Webb,       dept: Trust and Safety, title: Fraud Analyst }
+  - { first: Yuki,     last: Tanaka,     dept: Trust and Safety, title: Listing Moderator }
+  - { first: Grace,    last: Mbeki,      dept: Trust and Safety, title: Counterfeit Investigator }
+  - { first: Noah,     last: Fischer,    dept: Trust and Safety, title: Account Integrity Analyst }
+  # Seller Services
+  - { first: Isabel,   last: Moreno,     dept: Seller Services,  title: Seller Services Manager }
+  - { first: Kevin,    last: Nguyen,     dept: Seller Services,  title: Seller Onboarding Specialist }
+  - { first: Chloe,    last: Dubois,     dept: Seller Services,  title: Seller Account Manager }
+  - { first: Samuel,   last: Adeyemi,    dept: Seller Services,  title: Seller Account Manager }
+  - { first: Rachel,   last: Kim,        dept: Seller Services,  title: Seller Support Specialist }
+  # Payments
+  - { first: Victor,   last: Hale,       dept: Payments,         title: Payments Manager }
+  - { first: Nadia,    last: Haddad,     dept: Payments,         title: Payments Analyst }
+  - { first: Ethan,    last: Park,       dept: Payments,         title: Payouts Specialist }
+  - { first: Olivia,   last: Brennan,    dept: Payments,         title: Refunds Specialist }
+  - { first: Diego,    last: Alvarez,    dept: Payments,         title: Billing Specialist }
+  # Marketing
+  - { first: Zoe,      last: Mitchell,   dept: Marketing,        title: Marketing Director }
+  - { first: Arjun,    last: Mehta,      dept: Marketing,        title: Email Campaign Specialist }
+  - { first: Lily,     last: Chen,       dept: Marketing,        title: SEO Specialist }
+  - { first: Benjamin, last: Ross,       dept: Marketing,        title: Social Media Manager }
+  - { first: Fatima,   last: Zahra,      dept: Marketing,        title: Marketing Coordinator }
+
+# ── Group Policy ─────────────────────────────────────────────────
+# Created by roles/dc01/tasks/gpo.yml, but not tied to dc01: a GPO is stored
+# in AD (and in the SYSVOL share every DC copies), and it applies to the
+# users or computers in the OUs it is linked to, on any domain-joined machine.
+#
+# We create our own GPOs instead of editing the built-in "Default Domain
+# Policy". Microsoft's guidance is to keep that one for domain-wide
+# password/Kerberos settings only; separate, clearly named GPOs are easy to
+# find, unlink or delete without touching anything else.
+#
+# To add a GPO, add one more entry to this list; the tasks loop over it, so
+# no task changes are needed. Each entry has:
+#   name             GPO name shown in Group Policy Management
+#   comment          free-text description stored on the GPO
+#   links            OUs (distinguished names) to link it to; a GPO can be
+#                    linked to several. Users/computers in those OUs and in
+#                    every OU below them receive it.
+#   registry_values  the settings. Every "Administrative Templates" policy in
+#                    the Group Policy editor is really a registry value, so
+#                    each setting is: key, name, type (String, DWord,
+#                    ExpandString, MultiString, QWord) and value.
+#                    A key starting HKCU is a User Configuration setting
+#                    (follows the user); HKLM is Computer Configuration
+#                    (applies to the machine), so link HKLM-based GPOs to an
+#                    OU that holds computers.
+# Removing a setting from this list does not remove it from the GPO; delete
+# it in Group Policy Management (or remove the whole GPO) by hand.
+ad_gpos:
+  # Cosmetic role to prove GPO works. These two values are
+  # what User Configuration > Administrative Templates > Desktop > Desktop >
+  # "Desktop Wallpaper" writes. The image ships with every Windows Server
+  # version here, so no file share is needed.
+  - name: "Yabe - Desktop Wallpaper"
+    comment: "Sets the Yabe desktop wallpaper for all employees. Managed by Ansible."
+    links:
+      - "OU={{ ad_users_ou }},{{ domain_dn }}"   # all six departments
+    registry_values:
+      - key: 'HKCU\Software\Microsoft\Windows\CurrentVersion\Policies\System'
+        name: Wallpaper
+        type: String
+        value: 'C:\Windows\Web\Wallpaper\Windows\img0.jpg'
+      - key: 'HKCU\Software\Microsoft\Windows\CurrentVersion\Policies\System'
+        name: WallpaperStyle
+        type: String
+        value: '4'   # 0 Center, 1 Tile, 2 Stretch, 3 Fit, 4 Fill, 5 Span
+
+  # Department GPOs below. Each shows a different Group Policy behaviour.
+  # Department OU paths: OU=<department>,OU=Yabe Users,DC=yabe,DC=corp
+
+  # PRECEDENCE: the company GPO above (linked to "Yabe Users") and this one
+  # (linked to the Engineering OU inside it) set the same Wallpaper value.
+  # When GPOs conflict, the one linked closest to the user wins, so
+  # engineers get this image and everyone else keeps img0.jpg. Only the
+  # image is set here; WallpaperStyle (Fill) still comes from the company GPO.
+  - name: "Yabe - Engineering Wallpaper"
+    comment: "Engineering's own desktop wallpaper. Managed by Ansible."
+    links:
+      - "OU=Engineering,OU={{ ad_users_ou }},{{ domain_dn }}"
+    registry_values:
+      - key: 'HKCU\Software\Microsoft\Windows\CurrentVersion\Policies\System'
+        name: Wallpaper
+        type: String
+        value: 'C:\Windows\Web\Screen\img100.jpg'
+
+  # ONE GPO, SEVERAL OUs: both teams that talk to customers start Microsoft
+  # Edge on the internal help desk site (to be hosted on app01). Mixes String
+  # and DWord values, and a subkey. Edge reads these only where it is
+  # installed (Server 2022/2025 by default, not 2016/2019).
+  - name: "Yabe - Help Desk Homepage"
+    comment: "Edge home and startup page for customer-facing teams. Managed by Ansible."
+    links:
+      - "OU=Customer Support,OU={{ ad_users_ou }},{{ domain_dn }}"
+      - "OU=Seller Services,OU={{ ad_users_ou }},{{ domain_dn }}"
+    registry_values:
+      - key: 'HKCU\Software\Policies\Microsoft\Edge'
+        name: HomepageLocation
+        type: String
+        value: 'http://intranet.yabe.corp'
+      - key: 'HKCU\Software\Policies\Microsoft\Edge'
+        name: HomepageIsNewTabPage
+        type: DWord
+        value: 0          # 0 = use HomepageLocation, not the new tab page
+      - key: 'HKCU\Software\Policies\Microsoft\Edge'
+        name: ShowHomeButton
+        type: DWord
+        value: 1
+      - key: 'HKCU\Software\Policies\Microsoft\Edge'
+        name: RestoreOnStartup
+        type: DWord
+        value: 4          # 4 = open the list of URLs below at startup
+      - key: 'HKCU\Software\Policies\Microsoft\Edge\RestoreOnStartupURLs'
+        name: '1'         # list entries are numbered values 1, 2, 3...
+        type: String
+        value: 'http://intranet.yabe.corp'
+
+  # INHERITANCE MERGING: this GPO sets no wallpaper. Marketing users still
+  # get the company wallpaper from the parent OU, and this GPO adds one
+  # non-conflicting setting on top: User Configuration > Administrative
+  # Templates > Control Panel > Personalization > "Prevent changing desktop
+  # background". Marketing keeps the brand look
+  - name: "Yabe - Marketing Brand Lock"
+    comment: "Keeps the company wallpaper on Marketing desktops. Managed by Ansible."
+    links:
+      - "OU=Marketing,OU={{ ad_users_ou }},{{ domain_dn }}"
+    registry_values:
+      - key: 'HKCU\Software\Microsoft\Windows\CurrentVersion\Policies\ActiveDesktop'
+        name: NoChangingWallPaper
+        type: DWord
+        value: 1

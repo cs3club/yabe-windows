@@ -17,9 +17,26 @@ Hosts are grouped as `domain_controllers` (dc01, dc02) and
 
 ## Current state
 
-No roles exist yet. `site.yml` runs one play against every host with
-`roles: []`, so a run only connects and gathers facts. That makes it a
-good check that WinRM and secrets work before any roles are added.
+Like the sister repo (yabe-linux), there is **one role per machine** and
+`site.yml` has one play per machine, in build order.
+
+| Role | Status | Does |
+|------|--------|------|
+| `dc01` | done | promotes dc01 to the first DC of `yabe.corp`, creates OUs, department groups, 30 users and the GPOs. See [roles/dc01/README.md](roles/dc01/README.md) |
+| `dc02` | planned | additional DC (joins + replicates from dc01), DHCP |
+| `fs01_win`, `app01` | planned | join the domain, then file shares / IIS |
+| `base` | planned | anything all four machines need |
+
+No role hardens Windows; security settings stay at their defaults.
+
+**Promoting dc01 needs a reboot**, and Ansible never reboots unless you
+allow it, so the first run stops and asks you to reboot:
+
+    ansible-playbook site.yml --limit dc01                       # promotes, then stops
+    ansible dc01 -m ansible.windows.win_reboot                   # reboot by hand
+    ansible-playbook site.yml --limit dc01                       # users + GPOs
+
+or in one run: `ansible-playbook site.yml --limit dc01 -e allow_reboot=true`.
 
 ## Setup
 
@@ -59,9 +76,21 @@ by Ansible's built-in `host_group_vars` plugin; `secrets.sops.yml` is decrypted
 in memory by the `community.sops` vars plugin (both enabled in `ansible.cfg`),
 which runs `sops` with your age key. The plaintext is never written to disk.
 
-The secrets file holds the local admin login Ansible uses
-(`ansible_user`, `ansible_password`). Domain accounts will be added later
-for tasks such as promoting dc02.
+The secrets file holds:
+
+| Variable | Used for |
+|----------|----------|
+| `ansible_user`, `ansible_password` | the admin login Ansible uses on every host |
+| `safe_mode_password` | DSRM (repair-mode) password set when a server becomes a DC |
+| `ad_user_password` | starting password of all dummy users (set only at creation) |
+| `domain_join_user`, `domain_join_password` | later: promoting dc02, joining member servers |
+
+`safe_mode_password` and `ad_user_password` must meet Windows complexity
+(7+ characters, 3 of upper/lower/digit/symbol). The playbook stops with a
+clear message if one is missing. See `vars/secrets.sops.yml.example`.
+
+After dc01 is promoted, `Administrator` on dc01 means the domain account
+`YABE\Administrator` with the same password, so the login doesn't change.
 
 If decryption fails (no key, key not listed in the file, `sops` not installed),
 Ansible stops with an error naming the secrets file before it connects to any
@@ -78,19 +107,39 @@ doesn't move it. Move your copy once:
 
 ## Structure
 
-    site.yml                                   <- entry point (no roles yet)
+    site.yml                                   <- entry point: one play per machine
     ansible.cfg                                <- ansible settings (inventory path, vars plugins)
     requirements.yml                           <- collections to install
     .sops.yaml                                 <- age public keys SOPS encrypts for
     inventory/hosts.yml                        <- target machines and groups
-    inventory/group_vars/all/main.yml          <- non-secret variables for every host (domain, WinRM settings)
+    inventory/group_vars/all/main.yml          <- non-secret variables for every host (domain, domain_dn, WinRM, allow_reboot)
+    inventory/group_vars/all/ad.yml            <- what the domain contains: OUs, departments, groups, users, GPOs
     inventory/group_vars/all/secrets.sops.yml  <- SOPS-encrypted secrets (gitignored, shared out of band)
     vars/secrets.sops.yml.example              <- secrets template (committed)
+    roles/dc01/                                <- dc01 role (README, vars, tasks/{main,forest,users,gpo}.yml)
 
-Roles will go in `roles/` (set as `roles_path` in `ansible.cfg`) once they
-are written.
+Where a variable goes:
+- `roles/<role>/vars/main.yml`: how to build that one machine (prefixed with the role name, e.g. `dc01_`)
+- `inventory/group_vars/all/ad.yml`: what the domain contains, readable by every role (prefixed `ad_`)
+- `inventory/group_vars/all/main.yml`: settings for every host
+- Roles only *read* shared values like `allow_reboot`; a role that set its own copy would silently override it.
+
+To add a user, department or GPO, edit `ad.yml` and run
+`ansible-playbook site.yml --tags ad`; no task changes are needed.
 
 ## Known issues
+
+**dc01 sits on "Applying computer settings" after promotion.** Normal on the
+first boot as a DC (AD database, SYSVOL and DNS are being set up); it can
+take 10-20 minutes. If Ansible's reboot wait (10 minutes) times out, just
+re-run the same command once the login screen appears: promotion is already
+done and the run continues with users and GPOs.
+
+**"couldn't resolve module/action 'microsoft.ad.gpo_link'"** means the
+playbook was edited to the newer module name. In microsoft.ad 1.12.x the GPO
+link module is `microsoft.ad.gpo`; it is renamed `gpo_link` in a later
+release (with a deprecation warning on the old name). Check your version
+with `ansible-galaxy collection list microsoft.ad`.
 
 **WinRM "Bad HTTP response returned from server. Code 400"**, often together
 with the warning "Failed to cleanup running WinRM command". This is a known
