@@ -10,11 +10,11 @@
 # Why PowerShell for two of the steps: Ansible's AD collection
 # (microsoft.ad) can only *link* a GPO (microsoft.ad.gpo, used below). No Ansible
 # module creates a GPO or sets values inside one, so those two steps call
-# Microsoft's own GroupPolicy cmdlets (New-GPO, Set-GPRegistryValue). Each
-# script reads the current state first and only writes when something is
-# different, so it reports "changed" honestly and is safe to re-run, like a
-# real module. [CmdletBinding(SupportsShouldProcess)] lets the scripts run
-# in --check mode, where they report what they would change without doing it.
+# Microsoft's own GroupPolicy cmdlets (New-GPO, Set-GPRegistryValue). The
+# scripts live in roles/dc01/files/ (not inline here); `path:` makes
+# win_powershell read them from there and send them to dc01. Each script
+# reads the current state first and only writes when something differs, so
+# it reports "changed" honestly and works in --check mode, like a module.
 
 # The GroupPolicy cmdlets come with the Group Policy Management Console
 # (GPMC) feature. Promotion doesn't always install it. No reboot needed.
@@ -31,27 +31,7 @@
     parameters:
       Name: "{{ item.name }}"
       Comment: "{{ item.comment | default('') }}"
-    script: |
-      [CmdletBinding(SupportsShouldProcess)]
-      param (
-          [Parameter(Mandatory)][string]$Name,
-          [string]$Comment
-      )
-      $Ansible.Changed = $false
-      $gpo = Get-GPO -All | Where-Object DisplayName -eq $Name
-
-      if (-not $gpo) {
-          if ($PSCmdlet.ShouldProcess($Name, 'Create GPO')) {
-              New-GPO -Name $Name -Comment $Comment | Out-Null
-          }
-          $Ansible.Changed = $true
-      }
-      elseif ("$($gpo.Description)" -ne $Comment) {
-          if ($PSCmdlet.ShouldProcess($Name, 'Update GPO comment')) {
-              $gpo.Description = $Comment
-          }
-          $Ansible.Changed = $true
-      }
+    path: create_gpo.ps1
   loop: "{{ ad_gpos }}"
   loop_control:
     label: "{{ item.name }}"
@@ -70,48 +50,7 @@
       ValueName: "{{ item.1.name }}"
       Type: "{{ item.1.type }}"
       Value: "{{ item.1.value }}"
-    script: |
-      [CmdletBinding(SupportsShouldProcess)]
-      param (
-          [Parameter(Mandatory)][string]$Name,
-          [Parameter(Mandatory)][string]$Key,
-          [Parameter(Mandatory)][string]$ValueName,
-          [Parameter(Mandatory)][string]$Type,
-          [Parameter(Mandatory)][object]$Value
-      )
-      $Ansible.Changed = $false
-
-      # Numbers must be passed as numbers, lists as string arrays.
-      switch ($Type) {
-          'DWord'       { $Value = [int]$Value }
-          'QWord'       { $Value = [long]$Value }
-          'MultiString' { $Value = [string[]]$Value }
-          default       { $Value = [string]$Value }
-      }
-
-      # Read what the GPO holds now. A missing value (or, in --check mode,
-      # a GPO not created yet) throws, which just means "not set".
-      $current = $null
-      try {
-          $current = Get-GPRegistryValue -Name $Name -Key $Key -ValueName $ValueName -ErrorAction Stop
-      }
-      catch { }
-
-      # String values can come back with a trailing null character; strip it
-      # before comparing so an unchanged value isn't reported as changed.
-      $same = $false
-      if ($current) {
-          $currentValue = ($current.Value | ForEach-Object { "$_".TrimEnd([char]0) }) -join "`n"
-          $wantedValue = ($Value | ForEach-Object { "$_" }) -join "`n"
-          $same = ("$($current.Type)" -eq $Type) -and ($currentValue -eq $wantedValue)
-      }
-
-      if (-not $same) {
-          if ($PSCmdlet.ShouldProcess("$Name : $Key\$ValueName", 'Set GPO registry value')) {
-              Set-GPRegistryValue -Name $Name -Key $Key -ValueName $ValueName -Type $Type -Value $Value | Out-Null
-          }
-          $Ansible.Changed = $true
-      }
+    path: set_gpo_registry_value.ps1
   loop: "{{ ad_gpos | subelements('registry_values') }}"
   loop_control:
     label: "{{ item.0.name }}: {{ item.1.name }}"

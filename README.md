@@ -116,7 +116,8 @@ doesn't move it. Move your copy once:
     inventory/group_vars/all/ad.yml            <- what the domain contains: OUs, departments, groups, users, GPOs
     inventory/group_vars/all/secrets.sops.yml  <- SOPS-encrypted secrets (gitignored, shared out of band)
     vars/secrets.sops.yml.example              <- secrets template (committed)
-    roles/dc01/                                <- dc01 role (README, vars, tasks/{main,forest,users,gpo}.yml)
+    roles/dc01/                                <- dc01 role (README, vars, tasks/{main,forest,users,gpo}.yml,
+                                                  files/ = PowerShell scripts the GPO tasks run)
 
 Where a variable goes:
 - `roles/<role>/vars/main.yml`: how to build that one machine (prefixed with the role name, e.g. `dc01_`)

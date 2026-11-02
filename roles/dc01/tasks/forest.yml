@@ -60,32 +60,16 @@
     or (ansible_check_mode and (dc01_forest | default({})) is changed)
   tags: [always]
 
-# After a reboot AD takes a minute or two to start answering. Without this
-# check the user tasks could run too early and fail at random.
-# PowerShell is used because no module simply "waits for AD"; the script only
-# reads (it changes nothing), so it also runs in check mode.
-# It returns one word: 'ready', 'starting' (try again in 15 s, up to 5 min)
-# or 'not_installed' (AD isn't on this host at all, e.g. --tags users was
-# run before the first promotion; fail at once with no pointless waiting).
+# After a reboot AD takes a few minutes to start answering, and Ansible
+# reconnects before it does. Without this check the user tasks could run too
+# early and fail. object_info is a read-only lookup of the domain object
+# through the same AD service the OU, group and user modules use, so once it
+# succeeds the next tasks will work. It retries every 15 s for up to 5 min.
 - name: Wait until Active Directory answers
-  ansible.windows.win_powershell:
-    script: |
-      if (-not (Get-Command -Name Get-ADDomain -ErrorAction SilentlyContinue)) {
-          $Ansible.Result = 'not_installed'
-          return
-      }
-      try {
-          $null = Get-ADDomain -Server localhost -ErrorAction Stop
-          $Ansible.Result = 'ready'
-      }
-      catch {
-          $Ansible.Result = 'starting'
-      }
+  microsoft.ad.object_info:
+    identity: "{{ domain_dn }}"
   register: dc01_ad_ready
-  until: dc01_ad_ready.result in ['ready', 'not_installed']
+  until: dc01_ad_ready is succeeded
   retries: 20
   delay: 15
-  failed_when: dc01_ad_ready.result != 'ready'
-  changed_when: false
-  check_mode: false
   tags: [always]

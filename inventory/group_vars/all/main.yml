@@ -22,5 +22,5 @@ ansible_winrm_transport: ntlm
 # by hand, because a surprise reboot of a DC or scored service is risky.
 # Opt in for one run with:  ansible-playbook site.yml -e allow_reboot=true
 # (add --limit <host> to allow it for one machine only). It is set here
-# for every host, so no role should define its own copy in vars/main.yml:
+# for every host, so no role should define its own copy in vars/main.yml.
 allow_reboot: false
