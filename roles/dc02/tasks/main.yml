@@ -1,0 +1,33 @@
+---
+- name: Point DNS at dc01 so dc02 can locate the domain
+  ansible.windows.win_dns_client:
+    adapter_names: '*'
+    dns_servers:
+      - "{{ hostvars['dc01'].ansible_host }}"
+
+- name: Install AD DS role and management tools
+  ansible.windows.win_feature:
+    name: AD-Domain-Services
+    include_management_tools: true
+    state: present
+
+- name: Promote dc02 to an additional domain controller
+  microsoft.ad.domain_controller:
+    dns_domain_name: "{{ domain }}"
+    domain_admin_user: "{{ domain_admin_user }}"
+    domain_admin_password: "{{ domain_admin_password }}"
+    safe_mode_password: "{{ dsrm_password }}"
+    install_dns: true
+    reboot: true
+  register: dc02_promotion
+
+- name: Check replication health
+  ansible.windows.win_command: repadmin /replsummary
+  register: repl
+  changed_when: false
+  when: dc02_promotion is succeeded
+
+- name: Show replication summary
+  ansible.builtin.debug:
+    var: repl.stdout_lines
+  when: repl is not skipped
