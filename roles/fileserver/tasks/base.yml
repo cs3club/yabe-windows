@@ -1,0 +1,36 @@
+---
+# roles/fileserver/tasks/base.yml
+# Computer name and the file server feature. Both can need a reboot.
+# Reboots follow the team rule in inventory/group_vars/all/main.yml:
+# allow_reboot is false by default, because a surprise reboot of a scored
+# service costs availability points. Opt in for one run with:
+#   ansible-playbook site.yml --limit fs01-win -e allow_reboot=true
+
+- name: Set the computer name
+  ansible.windows.win_hostname:
+    name: "{{ fileserver_hostname }}"
+  register: fileserver_hostname_result
+
+- name: Install the file server features
+  ansible.windows.win_feature:
+    name: "{{ fileserver_features }}"
+    state: present
+    include_management_tools: true
+  register: fileserver_features_result
+
+- name: Reboot, but only when a change needs it and allow_reboot is true
+  ansible.windows.win_reboot:
+    reboot_timeout: 600
+  when:
+    - allow_reboot | bool
+    - fileserver_hostname_result.reboot_required or fileserver_features_result.reboot_required
+
+- name: Stop and ask for a manual reboot when one is needed but not allowed
+  ansible.builtin.fail:
+    msg: >-
+      fs01-win needs a reboot to finish the rename or feature install, and
+      allow_reboot is false. Reboot it by hand, or rerun with -e allow_reboot=true.
+  when:
+    - not (allow_reboot | bool)
+    - not ansible_check_mode
+    - fileserver_hostname_result.reboot_required or fileserver_features_result.reboot_required

@@ -42,3 +42,11 @@ venv/
 
 # ── Exceptions ────────────────────────────────────────────────────
 !vars/secrets.sops.yml.example
+
+# -- Certificates ------------------------------------------------------------
+# Team rule: never commit certificates. Keep them in SOPS, or in this local
+# folder, which git ignores. (Private keys are already covered by *.pem, *.key
+# and *.pfx above.)
+certs/
+*.crt
+*.cer

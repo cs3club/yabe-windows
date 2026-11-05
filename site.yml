@@ -32,9 +32,11 @@
 #     - role: dc02
 #       tags: [dc02]
 
-# Future: member servers join the domain once both DCs are up.
-# - name: FS01-WIN file server
-#   hosts: fs01-win
-#   roles:
-#     - role: fs01_win
-#       tags: [fs01_win]
+# FS01-WIN: SMB file server (owner: stACk-png). It does not need the domain
+# yet; joining yabe.corp and switching to AD groups comes later.
+- name: FS01-WIN file server
+  hosts: fs01-win
+  gather_facts: true
+  roles:
+    - role: fileserver
+      tags: [fileserver]

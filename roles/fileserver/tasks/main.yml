@@ -1,0 +1,25 @@
+---
+# roles/fileserver/tasks/main.yml
+# Entry point of the fileserver role (FS01-WIN, SMB file server). It only pulls
+# in the task files below, in order, and tags each one so a single part can be
+# re-run, e.g.:
+#   ansible-playbook site.yml --tags ntfs      (only folders and NTFS permissions)
+#   ansible-playbook site.yml --tags shares    (only the SMB shares)
+#
+# Order matters: folders are locked down (ntfs) BEFORE they are shared (shares),
+# so a share never exposes loose permissions, not even briefly.
+#
+# import_tasks (not include_tasks) is used on purpose: imports are read before
+# the run starts, so the tags apply to every task inside each file.
+
+# Computer name, the file server feature, and reboot handling.
+- ansible.builtin.import_tasks: base.yml
+  tags: [base, infra]
+
+# Share root and share folders, and who may use them (NTFS permissions).
+- ansible.builtin.import_tasks: ntfs.yml
+  tags: [ntfs, infra]
+
+# The SMB shares: permissions, access-based enumeration, encryption.
+- ansible.builtin.import_tasks: shares.yml
+  tags: [shares, infra]
