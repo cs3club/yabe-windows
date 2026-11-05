@@ -1,0 +1,59 @@
+---
+# roles/fileserver/tasks/ntfs.yml
+# NTFS permissions are the list on each folder of who may do what. They apply
+# however someone reaches the folder (over a share, or logged in on the server).
+# A new folder copies its parent's list, and C:\ lets every user read and create
+# files. A file server must not, so the share root stops copying and gets only
+# the entries listed in fileserver_root_ntfs_allow (SYSTEM and Administrators).
+
+- name: Create the share root folder
+  ansible.windows.win_file:
+    path: "{{ fileserver_share_root }}"
+    state: directory
+
+# Entries are added BEFORE inheritance is removed, so Administrators and SYSTEM
+# never lose access, not even for a moment.
+- name: Give the share root its own base NTFS entries
+  ansible.windows.win_acl:
+    path: "{{ fileserver_share_root }}"
+    user: "{{ item.user }}"
+    rights: "{{ item.rights }}"
+    type: allow
+    state: present
+    inherit: ContainerInherit, ObjectInherit
+    propagation: None
+  loop: "{{ fileserver_root_ntfs_allow }}"
+  loop_control:
+    label: "{{ item.user }}: {{ item.rights }}"
+
+# Stops C:\Shares copying C:\'s list, which gives every user read and create
+# rights. reorganize: false drops the copied entries instead of keeping them.
+- name: Stop the share root inheriting permissions from the C drive
+  ansible.windows.win_acl_inheritance:
+    path: "{{ fileserver_share_root }}"
+    state: absent
+    reorganize: false
+
+- name: Create a folder for each share
+  ansible.windows.win_file:
+    path: '{{ fileserver_share_root }}\{{ item.name }}'
+    state: directory
+  loop: "{{ fileserver_shares }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+# subelements loops over every (share, ntfs_allow entry) pair. A share with an
+# empty ntfs_allow list produces no pairs, so it gets nothing beyond what it
+# inherits from the share root.
+- name: Give each share folder its extra NTFS entries
+  ansible.windows.win_acl:
+    path: '{{ fileserver_share_root }}\{{ item.0.name }}'
+    user: "{{ item.1.user }}"
+    rights: "{{ item.1.rights }}"
+    type: allow
+    state: present
+    inherit: ContainerInherit, ObjectInherit
+    propagation: None
+  loop: "{{ fileserver_shares | subelements('ntfs_allow') }}"
+  loop_control:
+    label: "{{ item.0.name }}: {{ item.1.user }} {{ item.1.rights }}"
