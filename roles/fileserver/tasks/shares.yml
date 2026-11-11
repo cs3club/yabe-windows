@@ -15,7 +15,6 @@
     change: "{{ item.change | default(omit) }}"
     read: "{{ item.read | default(omit) }}"
     list: false
-    encrypt: "{{ fileserver_smb_encrypt }}"
     state: present
   loop: "{{ fileserver_shares }}"
   loop_control:

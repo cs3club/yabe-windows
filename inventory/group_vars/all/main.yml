@@ -60,10 +60,6 @@ fileserver_shares:
     full: Administrators
     ntfs_allow: []
 
-# Encrypt SMB traffic to every share (requires SMB 3 clients).
-# If the scoring engine or a client can't connect, test with this set to false.
-fileserver_smb_encrypt: true
-
 # Base NTFS permissions on the share root (C:\Shares). The role stops this folder
 # inheriting from C:\ (which lets every user read and create files), so these
 # are the ONLY entries. Every share folder inherits them, plus its own
