@@ -39,4 +39,4 @@
   gather_facts: true
   roles:
     - role: fs01-win
-      tags: [fileserver]
+      tags: [fs01-win]
