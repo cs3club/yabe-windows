@@ -25,7 +25,7 @@ ansible_winrm_transport: ntlm
 # for every host, so no role should define its own copy in vars/main.yml.
 allow_reboot: false
 
-# -- FS01-WIN file server (fileserver role) ---------------------------------
+# -- FS01-WIN file server (fs01-win role) ---------------------------------
 # Computer name. Windows limits this to 15 characters.
 fileserver_hostname: "fs01-win"
 

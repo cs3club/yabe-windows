@@ -1,5 +1,5 @@
 ---
-# roles/fileserver/tasks/shares.yml
+# roles/fs01-win/tasks/shares.yml
 # The SMB shares. Share permissions apply only to access over the network, and
 # the stricter of share and NTFS permissions wins. win_share replaces existing
 # permissions, so each share has exactly the entries in fileserver_shares.

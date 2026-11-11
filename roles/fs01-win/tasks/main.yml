@@ -1,6 +1,6 @@
 ---
-# roles/fileserver/tasks/main.yml
-# Entry point of the fileserver role (FS01-WIN, SMB file server). It only pulls
+# roles/fs01-win/tasks/main.yml
+# Entry point of the fs01-win role (FS01-WIN, SMB file server). It only pulls
 # in the task files below, in order, and tags each one so a single part can be
 # re-run, e.g.:
 #   ansible-playbook site.yml --tags ntfs      (only folders and NTFS permissions)

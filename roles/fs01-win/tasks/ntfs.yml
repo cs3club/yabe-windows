@@ -1,5 +1,5 @@
 ---
-# roles/fileserver/tasks/ntfs.yml
+# roles/fs01-win/tasks/ntfs.yml
 # NTFS permissions are the list on each folder of who may do what. They apply
 # however someone reaches the folder (over a share, or logged in on the server).
 # A new folder copies its parent's list, and C:\ lets every user read and create

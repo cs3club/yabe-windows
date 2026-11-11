@@ -38,5 +38,5 @@
   hosts: fs01-win
   gather_facts: true
   roles:
-    - role: fileserver
+    - role: fs01-win
       tags: [fileserver]

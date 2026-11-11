@@ -1,5 +1,5 @@
 ---
-# roles/fileserver/tasks/base.yml
+# roles/fs01-win/tasks/base.yml
 # Computer name and the file server feature. Both can need a reboot.
 # Reboots follow the team rule in inventory/group_vars/all/main.yml:
 # allow_reboot is false by default, because a surprise reboot of a scored
