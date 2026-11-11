@@ -1,0 +1,25 @@
+---
+# roles/dc01/tasks/main.yml
+# Entry point of the dc01 role. It only pulls in the task files below, in
+# order, and tags each one so a single part can be re-run, e.g.:
+#   ansible-playbook site.yml --tags users     (only OUs, groups, users)
+#   ansible-playbook site.yml --tags gpo       (only Group Policy)
+# Tag names follow the sister repo (yabe-linux): `infra` for building
+# services, `users` for account management, plus one tag per area.
+#
+# import_tasks (not include_tasks) is used on purpose: imports are read
+# before the run starts, so the tags apply to every task inside each file
+# and `ansible-playbook site.yml --list-tasks` shows them all.
+
+# Install Active Directory, create the yabe.corp forest, wait until AD
+# answers. Must run first: everything below lives inside AD.
+- ansible.builtin.import_tasks: forest.yml
+  tags: [forest, infra]
+
+# OUs, department groups and the accounts from inventory/group_vars/all/ad.yml.
+- ansible.builtin.import_tasks: users.yml
+  tags: [ad, users]
+
+# GPOs from the ad_gpos list in the same file: create, set values, link.
+- ansible.builtin.import_tasks: gpo.yml
+  tags: [ad, gpo]
