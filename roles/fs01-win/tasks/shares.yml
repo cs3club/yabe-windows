@@ -1,0 +1,21 @@
+---
+# roles/fs01-win/tasks/shares.yml
+# The SMB shares. Share permissions apply only to access over the network, and
+# the stricter of share and NTFS permissions wins. win_share replaces existing
+# permissions, so each share has exactly the entries in fileserver_shares.
+#   list: false     access-based enumeration: users only see what they can open
+#   encrypt         SMB traffic is encrypted (SMB 3 clients only)
+
+- name: Create the SMB shares
+  ansible.windows.win_share:
+    name: "{{ item.name }}"
+    path: '{{ fileserver_share_root }}\{{ item.name }}'
+    description: "{{ item.description | default(omit) }}"
+    full: "{{ item.full | default(omit) }}"
+    change: "{{ item.change | default(omit) }}"
+    read: "{{ item.read | default(omit) }}"
+    list: false
+    state: present
+  loop: "{{ fileserver_shares }}"
+  loop_control:
+    label: "{{ item.name }}"
